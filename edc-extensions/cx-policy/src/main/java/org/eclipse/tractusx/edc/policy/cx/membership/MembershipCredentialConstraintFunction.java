@@ -25,8 +25,11 @@ import org.eclipse.edc.participant.spi.ParticipantAgentPolicyContext;
 import org.eclipse.edc.policy.engine.spi.PolicyContext;
 import org.eclipse.edc.policy.model.Operator;
 import org.eclipse.edc.policy.model.Permission;
+import org.eclipse.edc.spi.result.Result;
 import org.eclipse.tractusx.edc.core.utils.credentials.CredentialTypePredicate;
 import org.eclipse.tractusx.edc.policy.cx.common.AbstractDynamicCredentialConstraintFunction;
+
+import java.util.Set;
 
 import static org.eclipse.tractusx.edc.edr.spi.CoreConstants.CX_CREDENTIAL_NS;
 import static org.eclipse.tractusx.edc.edr.spi.CoreConstants.CX_POLICY_NS;
@@ -38,6 +41,9 @@ import static org.eclipse.tractusx.edc.edr.spi.CoreConstants.CX_POLICY_NS;
  */
 public class MembershipCredentialConstraintFunction<C extends ParticipantAgentPolicyContext> extends AbstractDynamicCredentialConstraintFunction<C> {
     public static final String MEMBERSHIP_LITERAL = "Membership";
+    private static final Set<Operator> ALLOWED_OPERATORS = Set.of(
+            Operator.EQ
+    );
 
     @Override
     public boolean evaluate(Object leftOperand, Operator operator, Object rightOperand, Permission permission, C context) {
@@ -65,5 +71,16 @@ public class MembershipCredentialConstraintFunction<C extends ParticipantAgentPo
     @Override
     public boolean canHandle(Object leftOperand) {
         return leftOperand instanceof String && (CX_POLICY_NS + MEMBERSHIP_LITERAL).equalsIgnoreCase(leftOperand.toString());
+    }
+
+    @Override
+    public Result<Void> validate(Object leftValue, Operator operator, Object rightValue, Permission rule) {
+        if (!ALLOWED_OPERATORS.contains(operator)) {
+            return Result.failure("Invalid operator: this constraint only allows the following operators: %s, but received '%s'.".formatted(ALLOWED_OPERATORS, operator));
+        }
+        return rightValue instanceof String && ACTIVE.equalsIgnoreCase(rightValue.toString())
+                ? Result.success()
+                : Result.failure("Invalid right-operand: this constraint only allows the following right-operands: %s, but received '%s'."
+                .formatted(ACTIVE, rightValue));
     }
 }
