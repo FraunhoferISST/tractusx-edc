@@ -44,6 +44,7 @@ import static org.eclipse.edc.jsonld.spi.JsonLdKeywords.TYPE;
 import static org.eclipse.edc.jsonld.spi.PropertyAndTypeNames.ODRL_CONSTRAINT_TYPE;
 import static org.eclipse.edc.jsonld.spi.PropertyAndTypeNames.ODRL_LOGICAL_CONSTRAINT_TYPE;
 import static org.eclipse.edc.spi.constants.CoreConstants.EDC_NAMESPACE;
+import static org.eclipse.tractusx.edc.edr.spi.CoreConstants.CX_POLICY_NS;
 
 public class PolicyHelperFunctions {
 
@@ -53,6 +54,7 @@ public class PolicyHelperFunctions {
 
     public static final String BUSINESS_PARTNER_LEGACY_EVALUATION_KEY = TX_NAMESPACE + BUSINESS_PARTNER_EVALUATION_KEY;
 
+    //TODO: should we change the namesapce of the business partner group to CX?
     private static final String BUSINESS_PARTNER_CONSTRAINT_KEY = TX_NAMESPACE + "BusinessPartnerGroup";
 
     private static final ObjectMapper MAPPER = JacksonJsonLd.createObjectMapper();
@@ -65,29 +67,31 @@ public class PolicyHelperFunctions {
      * Creates a {@link PolicyDefinition} using the given ID, that contains equality constraints for each of the given BusinessPartnerNumbers:
      * each BPN is converted into an {@link AtomicConstraint} {@code BusinessPartnerNumber EQ [BPN]}.
      */
-    public static JsonObject frameworkPolicy(String id, Map<String, String> permissions) {
-        return policyDefinitionBuilder(frameworkPolicy(permissions))
+
+    public static JsonObject frameworkPolicy(String id, Map<String, String> permissions, String action) {
+        return policyDefinitionBuilder(frameworkPolicy(permissions, action))
                 .add(ID, id)
                 .build();
     }
 
-    public static JsonObject frameworkPolicy(Map<String, String> permissions) {
+    public static JsonObject frameworkPolicy(Map<String, String> permissions, String action) {
         return Json.createObjectBuilder()
                 .add(CONTEXT, ODRL_JSONLD)
                 .add(TYPE, "Set")
                 .add("permission", Json.createArrayBuilder()
-                        .add(frameworkPermission(permissions)))
+                        .add(frameworkPermission(permissions, action)))
                 .build();
     }
 
-    public static JsonObject frameworkPolicy(String leftOperand, Operator operator, Object rightOperand) {
+    //TODO: modify
+    public static JsonObject frameworkPolicy(String leftOperand, Operator operator, Object rightOperand, String action) {
         var constraint = atomicConstraint(leftOperand, operator.getOdrlRepresentation(), rightOperand);
 
         var permission = Json.createObjectBuilder()
-                .add("action", "use")
+                .add("action", action) // TODO: based on a parameter 'policyType'
                 .add("constraint", Json.createObjectBuilder()
                         .add(TYPE, ODRL_LOGICAL_CONSTRAINT_TYPE)
-                        .add("or", constraint)
+                        .add("or", constraint) // TODO: change to "and"
                         .build())
                 .build();
 
@@ -130,16 +134,16 @@ public class PolicyHelperFunctions {
                 .build();
     }
 
-
+    // TODO: modify
     private static JsonObject bpnGroupPolicy(String operator, String... allowedGroups) {
 
         var groupConstraint = atomicConstraint(BUSINESS_PARTNER_CONSTRAINT_KEY, operator, Arrays.asList(allowedGroups));
 
         var permission = Json.createObjectBuilder()
-                .add("action", "use")
+                .add("action", "access") // TODO: Is BPN group policy allowed in usage?
                 .add("constraint", Json.createObjectBuilder()
                         .add(TYPE, ODRL_LOGICAL_CONSTRAINT_TYPE)
-                        .add("or", groupConstraint)
+                        .add("and", groupConstraint) //TODO: change to "and"
                         .build())
                 .build();
 
@@ -158,7 +162,7 @@ public class PolicyHelperFunctions {
         }
 
     }
-
+    // TODO: modify
     private static JsonObject permission(String... bpns) {
 
         var bpnConstraints = Stream.of(bpns)
@@ -166,25 +170,26 @@ public class PolicyHelperFunctions {
                 .collect(Json::createArrayBuilder, JsonArrayBuilder::add, JsonArrayBuilder::add);
 
         return Json.createObjectBuilder()
-                .add("action", "use")
+                .add("action", "access") //TODO: is bpn policy allowed in usage?
                 .add("constraint", Json.createObjectBuilder()
                         .add(TYPE, ODRL_LOGICAL_CONSTRAINT_TYPE)
-                        .add("or", bpnConstraints)
+                        .add("and", bpnConstraints) // TODO: change to "and"
                         .build())
                 .build();
     }
 
-    private static JsonObject frameworkPermission(Map<String, String> permissions) {
+    // TODO: modify
+    private static JsonObject frameworkPermission(Map<String, String> permissions, String action) {
 
         var constraints = permissions.entrySet().stream()
                 .map(permission -> atomicConstraint(permission.getKey(), "eq", permission.getValue()))
                 .collect(Json::createArrayBuilder, JsonArrayBuilder::add, JsonArrayBuilder::add);
 
         return Json.createObjectBuilder()
-                .add("action", "use")
+                .add("action", action) // TODO: assign action based on a parameter 'policyType
                 .add("constraint", Json.createObjectBuilder()
                         .add(TYPE, ODRL_LOGICAL_CONSTRAINT_TYPE)
-                        .add("or", constraints)
+                        .add("and", constraints) //TODO: change to "and"
                         .build())
                 .build();
     }
