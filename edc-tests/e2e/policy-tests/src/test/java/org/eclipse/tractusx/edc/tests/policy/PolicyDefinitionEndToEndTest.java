@@ -22,7 +22,6 @@ package org.eclipse.tractusx.edc.tests.policy;
 import jakarta.json.JsonObject;
 import org.eclipse.edc.junit.annotations.EndToEndTest;
 import org.eclipse.edc.junit.extensions.RuntimeExtension;
-import org.eclipse.edc.policy.model.Operator;
 import org.eclipse.tractusx.edc.tests.participant.TransferParticipant;
 import org.eclipse.tractusx.edc.tests.runtimes.PostgresExtension;
 import org.junit.jupiter.api.DisplayName;
@@ -34,18 +33,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.eclipse.edc.connector.controlplane.test.system.utils.PolicyFixtures.inForceDatePolicy;
 import static org.eclipse.tractusx.edc.edr.spi.CoreConstants.CX_POLICY_NS;
-import static org.eclipse.tractusx.edc.tests.TestRuntimeConfiguration.CONSUMER_BPN;
-import static org.eclipse.tractusx.edc.tests.TestRuntimeConfiguration.CONSUMER_NAME;
-import static org.eclipse.tractusx.edc.tests.TestRuntimeConfiguration.PROVIDER_BPN;
-import static org.eclipse.tractusx.edc.tests.TestRuntimeConfiguration.PROVIDER_NAME;
-import static org.eclipse.tractusx.edc.tests.helpers.PolicyHelperFunctions.frameworkPolicy;
+import static org.eclipse.tractusx.edc.tests.TestRuntimeConfiguration.*;
+import static org.eclipse.tractusx.edc.tests.helpers.PolicyHelperFunctions.*;
 import static org.eclipse.tractusx.edc.tests.runtimes.Runtimes.pgRuntime;
 
 @EndToEndTest
@@ -81,8 +76,15 @@ public class PolicyDefinitionEndToEndTest {
 
     @DisplayName("Policy is accepted")
     @ParameterizedTest(name = "{1}")
+    @ArgumentsSource(InValidNamespaceContractPolicyProvider.class)
+    void shouldNotAcceptInvalidNamespacePolicyDefinitions(JsonObject policy, String description) {
+        assertThatThrownBy(() -> PROVIDER.createPolicyDefinition(policy));
+    }
+
+    @DisplayName("Policy is not accepted")
+    @ParameterizedTest(name = "{1}")
     @ArgumentsSource(InValidContractPolicyProvider.class)
-    void shouldNotAcceptInvalidValidPolicyDefinitions(JsonObject policy, String description) {
+    void shouldNotAcceptInvalidPolicyDefinitions(JsonObject policy, String description) {
         assertThatThrownBy(() -> PROVIDER.createPolicyDefinition(policy));
     }
 
@@ -98,17 +100,9 @@ public class PolicyDefinitionEndToEndTest {
         public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
             return Stream.of(
                     Arguments.of(frameworkPolicy(Map.of(namespace + "Membership", "active"), "access"), "MembershipCredential"),
-//                    Arguments.of(frameworkPolicy(Map.of(namespace + "FrameworkAgreement.pcf", "active")), "PCF Use Case (legacy notation)"),
-                    Arguments.of(frameworkPolicy(Map.of(namespace + "FrameworkAgreement", "Pcf"), "access"), "PCF Use Case (new notation)"),
-                    Arguments.of(frameworkPolicy(Map.of(namespace + "FrameworkAgreement", "DataExchangeGovernance:1.0.0"), "access"), "DataExchangeGovernance use case"),
-//                    Arguments.of(frameworkPolicy(Map.of(namespace + "Dismantler", "active")), "Dismantler Credential"),
-//                    Arguments.of(frameworkPolicy(Map.of(namespace + "Dismantler.activityType", "vehicleDismantle")), "Dismantler Cred (activity type)"),
-//                    Arguments.of(frameworkPolicy(namespace + "Dismantler.allowedBrands", Operator.IS_ANY_OF, List.of("Moskvich", "Tatra")), "Dismantler allowedBrands (IS_ANY_OF, one intersects)"),
-//                    Arguments.of(frameworkPolicy(namespace + "Dismantler.allowedBrands", Operator.EQ, List.of("Moskvich", "Lada")), "Dismantler allowedBrands (EQ, exact match)"),
-//                    Arguments.of(frameworkPolicy(namespace + "Dismantler.allowedBrands", Operator.IS_NONE_OF, List.of("Yugo", "Tatra")), "Dismantler allowedBrands (IS_NONE_OF, no intersect)"),
-//                    Arguments.of(frameworkPolicy(namespace + "Dismantler.allowedBrands", Operator.IN, List.of("Moskvich", "Tatra", "Yugo", "Lada")), "Dismantler allowedBrands (IN, fully contained)"),
-                    Arguments.of(frameworkPolicy(Map.of(namespace + "UsagePurpose", "cx.core.industrycore:1"), "use"), "Usage Purpose")
-//                    Arguments.of(frameworkPolicy(Map.of(namespace + "ContractReference", "contractReference")), "Contract reference")
+                    Arguments.of(frameworkPolicy(Map.of(namespace + "FrameworkAgreement", "DataExchangeGovernance:2.0"), "access"), "DataExchangeGovernance use case"),
+                    Arguments.of(frameworkPolicy(Map.of(namespace + "UsagePurpose", "cx.core.industrycore:1"), "use"), "Usage Purpose"),
+                    Arguments.of(frameworkPolicy(Map.of(namespace + "ContractReference", "ContractID250620197"), "use"), "Contract reference")
             );
         }
     }
@@ -127,10 +121,39 @@ public class PolicyDefinitionEndToEndTest {
         }
     }
 
+    private static class InValidNamespaceContractPolicyProvider extends BaseContractPolicyProvider {
+
+        private InValidNamespaceContractPolicyProvider() {
+            super("");
+        }
+    }
+
     private static class InValidContractPolicyProvider extends BaseContractPolicyProvider {
 
         private InValidContractPolicyProvider() {
-            super("");
+            super(CX_POLICY_NS);
+        }
+
+        @Override
+        public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
+            return Stream.of(
+                    Arguments.of(policyFromRules("permission",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "Membership", "active"), "access"),
+                            frameworkPermission(Map.of(CX_POLICY_NS + "UsagePurpose", "cx.core.industrycore:1"), "use")), "Policy with different actions types"),
+                    Arguments.of(policyFromRules("permission",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "Membership", "active"), "unknown-action")), "Policy with unknown actions types"),
+                    Arguments.of(policyFromRules("prohibition",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "Membership", "active"), "access")), "Access Policy with prohibition rule"),
+                    Arguments.of(policyFromRules("permission",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "UsagePurpose", "cx.core.industrycore:1"), "access")), "Access policy permission with not allowed constraints"),
+                    Arguments.of(policyFromRules("permission",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "FrameworkAgreement", "DataExchangeGovernance:2.0"), "use")), "Usage policy permission with not allowed constraints"),
+                    Arguments.of(policyFromRules("prohibition",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "AffiliatesRegion", "cx.region.europe:1"), "use")), "Usage policy prohibition with not allowed constraints"),
+                    Arguments.of(policyFromRules("obligation",
+                            frameworkPermission(Map.of(CX_POLICY_NS + "UsagePurpose", "cx.core.industrycore:1"), "use")), "Usage policy obligation with not allowed constraints")
+
+            );
         }
     }
 
