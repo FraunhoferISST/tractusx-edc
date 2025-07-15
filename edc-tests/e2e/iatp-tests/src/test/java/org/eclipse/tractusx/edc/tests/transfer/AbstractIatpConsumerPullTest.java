@@ -29,7 +29,6 @@ import org.eclipse.edc.iam.verifiablecredentials.spi.model.VerifiableCredentialC
 import org.eclipse.edc.identityhub.spi.verifiablecredentials.model.VerifiableCredentialResource;
 import org.eclipse.edc.identityhub.spi.verifiablecredentials.store.CredentialStore;
 import org.eclipse.edc.junit.extensions.RuntimeExtension;
-import org.eclipse.edc.policy.model.Operator;
 import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.tractusx.edc.tests.transfer.iatp.harness.DataspaceIssuer;
@@ -46,7 +45,6 @@ import org.mockserver.verify.VerificationTimes;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -239,12 +237,12 @@ public abstract class AbstractIatpConsumerPullTest extends ConsumerPullBaseTest 
 
         var newRawVc = dataspaceIssuer().membershipRawVc(did, bpn)
                 .add("credentialStatus", Json.createObjectBuilder()
-                    .add("id", "http://localhost:%d/status/list/7#12345".formatted(port))
-                    .add("type", "StatusList2021Entry")
-                    .add("statusPurpose", "revocation")
-                    .add("statusListIndex", "12345")
-                    .add("statusListCredential", "http://localhost:%d/status/list/7".formatted(port))
-                    .build())
+                        .add("id", "http://localhost:%d/status/list/7#12345".formatted(port))
+                        .add("type", "StatusList2021Entry")
+                        .add("statusPurpose", "revocation")
+                        .add("statusListIndex", "12345")
+                        .add("statusListCredential", "http://localhost:%d/status/list/7".formatted(port))
+                        .build())
                 .build();
 
         var newVcString = dataspaceIssuer().createJwtVc(newRawVc, did);
@@ -290,7 +288,7 @@ public abstract class AbstractIatpConsumerPullTest extends ConsumerPullBaseTest 
         public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
             return Stream.of(
                     Arguments.of(frameworkPolicy(Map.of(CX_POLICY_NS + "Membership", "active"), "access"), "MembershipCredential"),
-                    Arguments.of(frameworkPolicy(Map.of(CX_POLICY_NS + "FrameworkAgreement", "DataExchangeGovernance:1.0.0"),"access"), "DataExchangeGovernance use case")
+                    Arguments.of(frameworkPolicy(Map.of(CX_POLICY_NS + "FrameworkAgreement", "DataExchangeGovernance:1.0.0"), "access"), "DataExchangeGovernance use case")
             );
         }
     }
