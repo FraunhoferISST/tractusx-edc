@@ -59,7 +59,7 @@ import org.eclipse.tractusx.edc.policy.cx.precedence.PrecedenceConstraintFunctio
 import org.eclipse.tractusx.edc.policy.cx.usage.ExcludingUsageConstraintFunction;
 import org.eclipse.tractusx.edc.policy.cx.usage.UsagePurposeConstraintFunction;
 import org.eclipse.tractusx.edc.policy.cx.usage.UsageRestrictionConstraintFunction;
-import org.eclipse.tractusx.edc.policy.cx.validator.CxPolicyDefinitionValidator;
+import org.eclipse.tractusx.edc.policy.cx.validator.jsonschema.CxJsonSchemaPolicyDefinitionValidator;
 import org.eclipse.tractusx.edc.policy.cx.versionchange.VersionChangesConstraintFunction;
 import org.eclipse.tractusx.edc.policy.cx.warranty.WarrantyConstraintFunction;
 import org.eclipse.tractusx.edc.policy.cx.warranty.WarrantyDefinitionConstraintFunction;
@@ -70,7 +70,6 @@ import org.eclipse.tractusx.edc.validation.businesspartner.spi.store.BusinessPar
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static org.eclipse.edc.connector.controlplane.policy.spi.PolicyDefinition.EDC_POLICY_DEFINITION_TYPE;
 import static org.eclipse.edc.policy.model.OdrlNamespace.ODRL_SCHEMA;
 import static org.eclipse.tractusx.edc.edr.spi.CoreConstants.CX_POLICY_2025_09_NS;
 import static org.eclipse.tractusx.edc.policy.cx.affiliates.AffiliatesBpnlProhibitionConstraintFunction.AFFILIATES_BPNL;
@@ -367,7 +366,8 @@ public class CxPolicyExtension implements ServiceExtension {
 
     @Override
     public void prepare() {
-        validatorRegistry.register(EDC_POLICY_DEFINITION_TYPE, CxPolicyDefinitionValidator.instance());
+//        validatorRegistry.register(EDC_POLICY_DEFINITION_TYPE, CxPolicyDefinitionValidator.instance());
+        validatorRegistry.register("v4:PolicyDefinition", new CxJsonSchemaPolicyDefinitionValidator());
     }
 
     @Override

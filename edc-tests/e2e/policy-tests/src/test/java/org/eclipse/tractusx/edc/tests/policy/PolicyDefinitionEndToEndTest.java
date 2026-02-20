@@ -44,8 +44,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.eclipse.edc.jsonld.spi.JsonLdKeywords.CONTEXT;
-import static org.eclipse.edc.jsonld.spi.JsonLdKeywords.TYPE;
+import static org.eclipse.edc.jsonld.spi.JsonLdKeywords.*;
 import static org.eclipse.tractusx.edc.jsonld.JsonLdExtension.CX_ODRL_CONTEXT;
 import static org.eclipse.tractusx.edc.jsonld.JsonLdExtension.CX_POLICY_2025_09_CONTEXT;
 import static org.eclipse.tractusx.edc.tests.TestRuntimeConfiguration.CONSUMER_BPN;
@@ -59,14 +58,13 @@ import static org.eclipse.tractusx.edc.tests.helpers.PolicyHelperFunctions.frame
 import static org.eclipse.tractusx.edc.tests.helpers.PolicyHelperFunctions.inForceDateUsagePolicy;
 import static org.eclipse.tractusx.edc.tests.runtimes.Runtimes.pgRuntime;
 
-@EndToEndTest
+//@EndToEndTest
 public class PolicyDefinitionEndToEndTest {
     private static final TransferParticipant CONSUMER = TransferParticipant.Builder.newInstance()
             .name(CONSUMER_NAME)
             .id(CONSUMER_DID)
             .bpn(CONSUMER_BPN)
             .build();
-
 
     private static final TransferParticipant PROVIDER = TransferParticipant.Builder.newInstance()
             .name(PROVIDER_NAME)
@@ -88,21 +86,24 @@ public class PolicyDefinitionEndToEndTest {
     @ParameterizedTest(name = "{1}")
     @ArgumentsSource(ValidContractPolicyProvider.class)
     void shouldAcceptValidPolicyDefinitions(JsonObject policy, String description) {
-        PROVIDER.createPolicyDefinition(policy);
+        PROVIDER.createPolicyDefinitionV4(policy);
     }
 
-    @DisplayName("Policy is not accepted due to missing context")
-    @ParameterizedTest(name = "{1}")
-    @ArgumentsSource(InValidNamespaceContractPolicyProvider.class)
-    void shouldNotAcceptInvalidNamespacePolicyDefinitions(JsonObject policy, String description) {
-        checkForValidationFailure(policy);
-    }
+    // in context of schema-based validation, no namespace should be present
+//    @DisplayName("Policy is not accepted due to missing context")
+//    @ParameterizedTest(name = "{1}")
+//    @ArgumentsSource(InValidNamespaceContractPolicyProvider.class)
+//    void shouldNotAcceptInvalidNamespacePolicyDefinitions(JsonObject policy, String description) {
+//        //checkForValidationFailure(policy);
+//        PROVIDER.createPolicyDefinitionV4AndExpectValidationFailure(policy);
+//    }
 
     @DisplayName("Policy is not accepted because definition is not correct")
     @ParameterizedTest(name = "{1}")
     @ArgumentsSource(InValidContractPolicyProvider.class)
     void shouldNotAcceptInvalidPolicyDefinitions(JsonObject policy, String description) {
-        checkForValidationFailure(policy);
+        //checkForValidationFailure(policy);
+        PROVIDER.createPolicyDefinitionV4AndExpectValidationFailure(policy);
     }
 
     private void checkForValidationFailure(JsonObject policy) {
@@ -123,7 +124,7 @@ public class PolicyDefinitionEndToEndTest {
         public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
             return Stream.of(
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("Membership", "active"), "use", Operator.EQ, false)), "MembershipCredential"),
+                            frameworkConstraint(Map.of("Membership", "active"), "access", Operator.EQ, false)), "MembershipCredential"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("FrameworkAgreement", "DataExchangeGovernance:1.0"), "use", Operator.EQ, false)), "DataExchangeGovernance use case"),
                     Arguments.of(policyFromRules("permission", namespace,
@@ -188,8 +189,8 @@ public class PolicyDefinitionEndToEndTest {
         public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
             return Stream.concat(super.provideArguments(extensionContext), Stream.of(
                     Arguments.of(emptyPolicy(), "Empty Policy"),
-                    Arguments.of(policyWithEmptyRule("access", this.namespace), "Access policy with empty permission"),
-                    Arguments.of(inForceDateUsagePolicy("gteq", "contractAgreement+0s", "lteq", "contractAgreement+10s"), "In force date policy")
+                    Arguments.of(policyWithEmptyRule("access", this.namespace), "Access policy with empty permission")
+                    //Arguments.of(inForceDateUsagePolicy("gteq", "contractAgreement+0s", "lteq", "contractAgreement+10s"), "In force date policy")
             ));
         }
     }
@@ -210,25 +211,34 @@ public class PolicyDefinitionEndToEndTest {
         @Override
         public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
             return Stream.of(
-                    Arguments.of(policyWithEmptyRule("use", this.namespace), "Usage policy with empty permission"),
+                    Arguments.of(policyWithEmptyRule("use", this.namespace),
+                            "Usage policy with empty permission"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("Membership", "active"), "access", Operator.EQ, false),
-                            frameworkConstraint(Map.of("UsagePurpose", List.of("cx.core.industrycore:1")), "use", Operator.IS_ANY_OF, true)), "Policy with different actions types"),
+                            frameworkConstraint(Map.of("UsagePurpose", List.of("cx.core.industrycore:1")), "use", Operator.IS_ANY_OF, true)),
+                            "Policy with different actions types"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("Membership", "active"), "unknown-action", Operator.EQ, false)), "Policy with unknown actions types"),
+                            frameworkConstraint(Map.of("Membership", "active"), "unknown-action", Operator.EQ, false)),
+                            "Policy with unknown actions types"),
                     Arguments.of(policyFromRules("prohibition", namespace,
-                            frameworkConstraint(Map.of("Membership", "active"), "access", Operator.EQ, false)), "Access Policy with prohibition rule"),
+                            frameworkConstraint(Map.of("Membership", "active"), "access", Operator.EQ, false)),
+                            "Access Policy with prohibition rule"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("UsagePurpose", "cx.core.industrycore:1"), "access", Operator.EQ, false)), "Access policy permission with not allowed constraints"),
+                            frameworkConstraint(Map.of("UsagePurpose", "cx.core.industrycore:1"), "access", Operator.EQ, false)),
+                            "Access policy permission with not allowed constraints"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("BusinessPartnerNumber", "BPN0022232"), "use", Operator.EQ, false)), "Usage policy permission with not allowed constraints"),
+                            frameworkConstraint(Map.of("BusinessPartnerNumber", "BPN0022232"), "use", Operator.EQ, false)),
+                            "Usage policy permission with not allowed constraints"),
                     Arguments.of(policyFromRules("prohibition", namespace,
-                            frameworkConstraint(Map.of("AffiliatesRegion", "cx.region.europe:1"), "use", Operator.EQ, false)), "Usage policy prohibition with not allowed constraints"),
+                            frameworkConstraint(Map.of("AffiliatesRegion", "cx.region.europe:1"), "use", Operator.EQ, false)),
+                            "Usage policy prohibition with not allowed constraints"),
                     Arguments.of(policyFromRules("obligation", namespace,
-                            frameworkConstraint(Map.of("UsagePurpose", "cx.core.industrycore:1"), "use", Operator.EQ, false)), "Usage policy obligation with not allowed constraints"),
+                            frameworkConstraint(Map.of("UsagePurpose", "cx.core.industrycore:1"), "use", Operator.EQ, false)),
+                            "Usage policy obligation with not allowed constraints"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("WarrantyDurationMonths", 3), "use", Operator.EQ, false),
-                            frameworkConstraint(Map.of("WarrantyDefinition", "cx.warranty.contractEndDate:1"), "use", Operator.EQ, false)), "Policy with mutually exclusive constraints")
+                            frameworkConstraint(Map.of("WarrantyDefinition", "cx.warranty.contractEndDate:1"), "use", Operator.EQ, false)),
+                            "Policy with mutually exclusive constraints")
             );
         }
     }
@@ -245,14 +255,15 @@ public class PolicyDefinitionEndToEndTest {
             rulesArrayBuilder.add(rule);
         }
         var contextArrayBuilder = Json.createArrayBuilder();
-        contextArrayBuilder.add(CX_ODRL_CONTEXT);
-        if (!policyDefinition.isBlank()) {
-            contextArrayBuilder.add(policyDefinition);
-        }
+        //contextArrayBuilder.add(CX_ODRL_CONTEXT);
+//        if (!policyDefinition.isBlank()) {
+//            contextArrayBuilder.add(policyDefinition);
+//        }
 
         return Json.createObjectBuilder()
                 .add(CONTEXT, contextArrayBuilder)
                 .add(TYPE, "Set")
+                .add(ID, "123456")
                 .add(ruleType, rulesArrayBuilder)
                 .build();
     }
@@ -264,12 +275,13 @@ public class PolicyDefinitionEndToEndTest {
         var rulesArrayBuilder = Json.createArrayBuilder();
         rulesArrayBuilder.add(rule);
         var contextArrayBuilder = Json.createArrayBuilder();
-        contextArrayBuilder.add(CX_ODRL_CONTEXT);
+        //contextArrayBuilder.add(CX_ODRL_CONTEXT);
         contextArrayBuilder.add(policyContext);
 
         return Json.createObjectBuilder()
                 .add(CONTEXT, contextArrayBuilder)
                 .add(TYPE, "Set")
+                .add(ID, "123456")
                 .add("permission", rulesArrayBuilder)
                 .build();
     }

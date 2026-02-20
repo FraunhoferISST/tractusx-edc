@@ -43,22 +43,32 @@ public final class PolicyBuilderFixtures {
 
     public static JsonObject atomicConstraint(String leftOperand, String operator, Object rightOperand) {
         var builder = Json.createObjectBuilder()
-                .add(TYPE, ODRL_CONSTRAINT_TYPE)
-                .add(ODRL_LEFT_OPERAND_ATTRIBUTE, Json.createArrayBuilder().add(Json.createObjectBuilder().add(ID, leftOperand)))
-                .add(ODRL_OPERATOR_ATTRIBUTE, Json.createArrayBuilder().add(Json.createObjectBuilder().add(ID, operator)));
+//                .add(TYPE, ODRL_CONSTRAINT_TYPE)
+//                .add(ODRL_LEFT_OPERAND_ATTRIBUTE, Json.createValue(leftOperand))
+//                .add(ODRL_OPERATOR_ATTRIBUTE, Json.createValue(operator));
+                .add("leftOperand", Json.createValue(leftOperand))
+                .add("operator", Json.createValue(operator));
 
+//        if (rightOperand instanceof Collection<?> coll) {
+//            var rightArray = Json.createArrayBuilder();
+//            coll.forEach(item -> rightArray.add(Json.createObjectBuilder().add(VALUE, item.toString())));
+//            builder.add(ODRL_RIGHT_OPERAND_ATTRIBUTE, rightArray);
+//        } else {
+//            builder.add(ODRL_RIGHT_OPERAND_ATTRIBUTE, Json.createValue(rightOperand.toString()));
+//        }
         if (rightOperand instanceof Collection<?> coll) {
             var rightArray = Json.createArrayBuilder();
-            coll.forEach(item -> rightArray.add(Json.createObjectBuilder().add(VALUE, item.toString())));
-            builder.add(ODRL_RIGHT_OPERAND_ATTRIBUTE, rightArray);
+            coll.forEach(item -> rightArray.add(Json.createValue(item.toString())));
+            builder.add("rightOperand", rightArray);
         } else {
-            builder.add(ODRL_RIGHT_OPERAND_ATTRIBUTE, Json.createArrayBuilder().add(Json.createObjectBuilder().add(VALUE, rightOperand.toString())));
+            builder.add("rightOperand", Json.createValue(rightOperand.toString()));
         }
         return builder.build();
     }
 
     public static JsonObject atomicConstraint(String leftOperand) {
-        return atomicConstraint(leftOperand, "odrl:eq", "test-value");
+        //return atomicConstraint(leftOperand, "odrl:eq", "test-value");
+        return atomicConstraint(leftOperand, "eq", "test-value");
     }
 
     public static JsonObject logicalConstraint(String constraintType, JsonObject... constraints) {
@@ -77,8 +87,10 @@ public final class PolicyBuilderFixtures {
             arrayBuilder.add(constraint);
         }
         return Json.createObjectBuilder()
-                .add(ODRL_ACTION_ATTRIBUTE, actionType)
-                .add(ODRL_CONSTRAINT_ATTRIBUTE, arrayBuilder)
+//                .add(ODRL_ACTION_ATTRIBUTE, actionType)
+//                .add(ODRL_CONSTRAINT_ATTRIBUTE, arrayBuilder)
+                .add("action", actionType)
+                .add("constraint", arrayBuilder)
                 .build();
     }
 
@@ -88,7 +100,8 @@ public final class PolicyBuilderFixtures {
             arrayBuilder.add(constraint);
         }
         return Json.createObjectBuilder()
-                .add(ODRL_CONSTRAINT_ATTRIBUTE, arrayBuilder)
+//                .add(ODRL_CONSTRAINT_ATTRIBUTE, arrayBuilder)
+                .add("constraint", arrayBuilder)
                 .build();
     }
 
@@ -120,7 +133,8 @@ public final class PolicyBuilderFixtures {
             rulesArrayBuilder.add(rule);
         }
         return Json.createObjectBuilder()
-                .add(TYPE, Json.createArrayBuilder().add(ODRL_POLICY_TYPE_SET))
+//                .add(TYPE, Json.createArrayBuilder().add(ODRL_POLICY_TYPE_SET))
+                .add(TYPE, Json.createArrayBuilder().add("Set"))
                 .add(ruleType, rulesArrayBuilder)
                 .build();
     }

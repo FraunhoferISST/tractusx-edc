@@ -41,6 +41,8 @@ dependencies {
     //validator dependencies
     api(libs.edc.spi.controlplane)
     implementation(libs.edc.lib.validator)
+    implementation("org.eclipse.edc:json-ld-lib:0.15.1")
+    implementation("com.networknt:json-schema-validator:2.0.0")
 
     testImplementation(libs.edc.junit)
     testFixturesImplementation(libs.edc.junit)

@@ -50,7 +50,8 @@ class ConstraintValidatorTest {
 
     @Test
     void shouldReturnSuccess_whenValidAtomicConstraint() {
-        var constraint = atomicConstraint(FRAMEWORK_AGREEMENT_LITERAL);
+        //var constraint = atomicConstraint(FRAMEWORK_AGREEMENT_LITERAL);
+        var constraint = atomicConstraint("FrameworkAgreement", "eq", "DataExchangeGovernance:1.0");
 
         ValidationResult result = accessPolicyValidator.validate(constraint);
 
@@ -61,8 +62,10 @@ class ConstraintValidatorTest {
     @ValueSource(strings = {ODRL_AND_CONSTRAINT_ATTRIBUTE})
     void shouldReturnSuccess_whenAllowedLogicalOperator(String operator) {
         var logicalConstraint = logicalConstraint(operator,
-                atomicConstraint(FRAMEWORK_AGREEMENT_LITERAL),
-                atomicConstraint(MEMBERSHIP_LITERAL));
+//                atomicConstraint(FRAMEWORK_AGREEMENT_LITERAL),
+//                atomicConstraint(MEMBERSHIP_LITERAL));
+                atomicConstraint("FrameworkAgreement", "eq", "DataExchangeGovernance:1.0"),
+                atomicConstraint("Membership", "eq", "active"));
 
         ValidationResult result = accessPolicyValidator.validate(logicalConstraint);
 
