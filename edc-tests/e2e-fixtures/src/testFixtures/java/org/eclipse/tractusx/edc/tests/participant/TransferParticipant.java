@@ -90,7 +90,7 @@ public class TransferParticipant extends TractusxParticipantBase {
                 .add("policy", policy)
                 .build();
 
-        var failureType = baseManagementRequest()
+        var response = baseManagementRequest()
                 .contentType(JSON)
                 .body(requestBody)
                 .when()
@@ -99,8 +99,8 @@ public class TransferParticipant extends TractusxParticipantBase {
                 .log().ifValidationFails()
                 .statusCode(400)
                 .contentType(JSON)
-                .extract().jsonPath().getString("[0].type");
-        assertThat(failureType).isEqualTo("ValidationFailure");
+                .extract().jsonPath();
+        assertThat(response.getString("[0].type")).isEqualTo("ValidationFailure");
     }
 
     @Override
