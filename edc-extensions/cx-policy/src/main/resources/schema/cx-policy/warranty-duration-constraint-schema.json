@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/WarrantyDurationConstraint"
+      "$ref": "#/$defs/WarrantyDurationConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/warranty-duration-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "WarrantyDurationConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/definitions/WarrantyDurationMonthsRightOperand"
+          "$ref": "#/$defs/WarrantyDurationMonthsRightOperand"
         }
       },
       "additionalProperties": false

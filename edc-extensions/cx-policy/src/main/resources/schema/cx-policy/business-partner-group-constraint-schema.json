@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/BusinessPartnerGroupConstraint"
+      "$ref": "#/$defs/BusinessPartnerGroupConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/business-partner-group-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "BusinessPartnerGroupConstraint": {
       "type": "object",
       "properties": {
@@ -28,7 +28,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "$ref": "#/definitions/BusinessPartnerGroupRightOperand"
+            "$ref": "#/$defs/BusinessPartnerGroupRightOperand"
           }
         }
       },

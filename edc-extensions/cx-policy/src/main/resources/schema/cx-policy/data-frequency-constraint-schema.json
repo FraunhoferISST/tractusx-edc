@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/DataFrequencyConstraint"
+      "$ref": "#/$defs/DataFrequencyConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/data-frequency-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "DataFrequencyConstraint": {
       "type": "object",
       "properties": {
@@ -22,8 +22,8 @@
         },
         "rightOperand": {
           "oneOf": [
-            {"$ref": "#/definitions/DataFrequencyOnceRightOperand"},
-            {"$ref": "#/definitions/DataFrequencyUnlimitedRightOperand"}
+            {"$ref": "#/$defs/DataFrequencyOnceRightOperand"},
+            {"$ref": "#/$defs/DataFrequencyUnlimitedRightOperand"}
           ]
         }
       },

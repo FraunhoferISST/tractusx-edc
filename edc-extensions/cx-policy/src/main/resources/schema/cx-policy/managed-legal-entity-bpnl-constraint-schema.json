@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/ManagedLegalEntityBpnlConstraint"
+      "$ref": "#/$defs/ManagedLegalEntityBpnlConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/managed-legal-entity-bpnl-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "ManagedLegalEntityBpnlConstraint": {
       "type": "object",
       "properties": {
@@ -25,7 +25,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "$ref": "#/definitions/ManagedLegalEntityBpnlRightOperand"
+            "$ref": "#/$defs/ManagedLegalEntityBpnlRightOperand"
           }
         }
       },

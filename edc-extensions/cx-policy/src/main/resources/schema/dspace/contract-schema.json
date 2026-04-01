@@ -4,21 +4,21 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/Policy"
+      "$ref": "#/$defs/Policy"
     }
   ],
   "$id": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json",
-  "definitions": {
+  "$defs": {
     "Policy": {
       "oneOf": [
         {
-          "$ref": "#/definitions/MessageOffer"
+          "$ref": "#/$defs/MessageOffer"
         },
         {
-          "$ref": "#/definitions/Offer"
+          "$ref": "#/$defs/Offer"
         },
         {
-          "$ref": "#/definitions/Agreement"
+          "$ref": "#/$defs/Agreement"
         }
       ]
     },
@@ -44,21 +44,21 @@
         "permission": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Permission"
+            "$ref": "#/$defs/Permission"
           },
           "minItems": 1
         },
         "prohibition": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Prohibition"
+            "$ref": "#/$defs/Prohibition"
           },
           "minItems": 1
         },
         "obligation": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Duty"
+            "$ref": "#/$defs/Duty"
           },
           "minItems": 1
         }
@@ -71,7 +71,7 @@
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/definitions/PolicyClass"
+          "$ref": "#/$defs/PolicyClass"
         },
         {
           "properties": {
@@ -107,7 +107,7 @@
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/definitions/PolicyClass"
+          "$ref": "#/$defs/PolicyClass"
         },
         {
           "properties": {
@@ -142,7 +142,7 @@
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/definitions/PolicyClass"
+          "$ref": "#/$defs/PolicyClass"
         },
         {
           "properties": {
@@ -191,12 +191,12 @@
       "type": "object",
       "properties": {
         "action": {
-          "$ref": "#/definitions/Action"
+          "$ref": "#/$defs/Action"
         },
         "constraint": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Constraint"
+            "$ref": "#/$defs/Constraint"
           }
         }
       },
@@ -208,7 +208,7 @@
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/definitions/Rule"
+          "$ref": "#/$defs/Rule"
         }
       ]
     },
@@ -216,7 +216,7 @@
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/definitions/Rule"
+          "$ref": "#/$defs/Rule"
         }
       ]
     },
@@ -226,12 +226,12 @@
         {
           "properties": {
             "action": {
-              "$ref": "#/definitions/Action"
+              "$ref": "#/$defs/Action"
             },
             "constraint": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/Constraint"
+                "$ref": "#/$defs/Constraint"
               }
             }
           },
@@ -248,10 +248,10 @@
       "type": "object",
       "oneOf": [
         {
-          "$ref": "#/definitions/LogicalConstraint"
+          "$ref": "#/$defs/LogicalConstraint"
         },
         {
-          "$ref": "#/definitions/AtomicConstraint"
+          "$ref": "#/$defs/AtomicConstraint"
         }
       ]
     },
@@ -261,25 +261,25 @@
         "and": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Constraint"
+            "$ref": "#/$defs/Constraint"
           }
         },
         "andSequence": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Constraint"
+            "$ref": "#/$defs/Constraint"
           }
         },
         "or": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Constraint"
+            "$ref": "#/$defs/Constraint"
           }
         },
         "xone": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Constraint"
+            "$ref": "#/$defs/Constraint"
           }
         }
       },
@@ -310,13 +310,13 @@
       "type": "object",
       "properties": {
         "rightOperand": {
-          "$ref": "#/definitions/RightOperand"
+          "$ref": "#/$defs/RightOperand"
         },
         "leftOperand": {
-          "$ref": "#/definitions/LeftOperand"
+          "$ref": "#/$defs/LeftOperand"
         },
         "operator": {
-          "$ref": "#/definitions/Operator"
+          "$ref": "#/$defs/Operator"
         }
       },
       "required": [

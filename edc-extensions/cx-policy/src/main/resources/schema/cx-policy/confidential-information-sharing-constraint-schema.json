@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/ConfidentialInformationSharingConstraint"
+      "$ref": "#/$defs/ConfidentialInformationSharingConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/confidential-information-sharing-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "ConfidentialInformationSharingConstraint": {
       "type": "object",
       "properties": {
@@ -25,8 +25,8 @@
           "minItems": 1,
           "items": {
             "anyOf": [
-              {"$ref": "#/definitions/SharingAffiliatesRightOperand"},
-              {"$ref": "#/definitions/SharingManagedLegalEntityRightOperand"}
+              {"$ref": "#/$defs/SharingAffiliatesRightOperand"},
+              {"$ref": "#/$defs/SharingManagedLegalEntityRightOperand"}
             ]
           }
         }

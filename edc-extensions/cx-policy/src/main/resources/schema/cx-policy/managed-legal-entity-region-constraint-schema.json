@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/ManagedLegalEntityRegionConstraint"
+      "$ref": "#/$defs/ManagedLegalEntityRegionConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/managed-legal-entity-region-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "ManagedLegalEntityRegionConstraint": {
       "type": "object",
       "properties": {
@@ -25,14 +25,14 @@
           "minItems": 1,
           "items": {
             "anyOf": [
-              {"$ref": "#/definitions/ManagedLegalEntityRegionAllRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionEuropeRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionNorthAmericaRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionSouthAmericaRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionAfricaRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionAsiaRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionOceaniaRightOperand"},
-              {"$ref": "#/definitions/ManagedLegalEntityRegionAntarcticaRightOperand"}
+              {"$ref": "#/$defs/ManagedLegalEntityRegionAllRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionEuropeRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionNorthAmericaRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionSouthAmericaRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionAfricaRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionAsiaRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionOceaniaRightOperand"},
+              {"$ref": "#/$defs/ManagedLegalEntityRegionAntarcticaRightOperand"}
             ]
           }
         }

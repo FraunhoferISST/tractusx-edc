@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/ContractTerminationConstraint"
+      "$ref": "#/$defs/ContractTerminationConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/contract-termination-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "ContractTerminationConstraint": {
       "type": "object",
       "properties": {
@@ -22,8 +22,8 @@
         },
         "rightOperand": {
           "oneOf": [
-            {"$ref": "#/definitions/DataDeletionRightOperand"},
-            {"$ref": "#/definitions/DataKeepingRightOperand"}
+            {"$ref": "#/$defs/DataDeletionRightOperand"},
+            {"$ref": "#/$defs/DataKeepingRightOperand"}
           ]
         }
       },

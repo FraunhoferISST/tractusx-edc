@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/AffiliatesBpnlConstraint"
+      "$ref": "#/$defs/AffiliatesBpnlConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/affiliates-bpnl-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "AffiliatesBpnlConstraint": {
       "type": "object",
       "properties": {
@@ -25,7 +25,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "$ref": "#/definitions/BpnlRightOperand"
+            "$ref": "#/$defs/BpnlRightOperand"
           }
         }
       },

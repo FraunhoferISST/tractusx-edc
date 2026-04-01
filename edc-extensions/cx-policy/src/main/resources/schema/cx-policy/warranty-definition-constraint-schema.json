@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/WarrantyConstraint"
+      "$ref": "#/$defs/WarrantyConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/warranty-definition-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "WarrantyConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/definitions/WarrantyContractEndDateRightOperand"
+          "$ref": "#/$defs/WarrantyContractEndDateRightOperand"
         }
       },
       "additionalProperties": false

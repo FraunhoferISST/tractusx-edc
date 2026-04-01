@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/ContractReferenceConstraint"
+      "$ref": "#/$defs/ContractReferenceConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/contract-reference-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "ContractReferenceConstraint": {
       "type": "object",
       "properties": {
@@ -25,7 +25,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "$ref": "#/definitions/ContractReferenceRightOperand"
+            "$ref": "#/$defs/ContractReferenceRightOperand"
           }
         }
       },

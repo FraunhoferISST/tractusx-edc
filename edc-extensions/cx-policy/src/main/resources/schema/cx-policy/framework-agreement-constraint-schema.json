@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/FrameworkAgreementConstraint"
+      "$ref": "#/$defs/FrameworkAgreementConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/framework-agreement-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "FrameworkAgreementConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/definitions/DataExchangeGovernanceRightOperand"
+          "$ref": "#/$defs/DataExchangeGovernanceRightOperand"
         }
       },
       "additionalProperties": false

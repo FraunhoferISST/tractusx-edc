@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/WarrantyConstraint"
+      "$ref": "#/$defs/WarrantyConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/warranty-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "WarrantyConstraint": {
       "type": "object",
       "properties": {
@@ -22,9 +22,9 @@
         },
         "rightOperand": {
           "oneOf": [
-            {"$ref": "#/definitions/WarrantyNoneRightOperand"},
-            {"$ref": "#/definitions/WarrantyContractReferenceRightOperand"},
-            {"$ref": "#/definitions/WarrantyDataQualityIssuesRightOperand"}
+            {"$ref": "#/$defs/WarrantyNoneRightOperand"},
+            {"$ref": "#/$defs/WarrantyContractReferenceRightOperand"},
+            {"$ref": "#/$defs/WarrantyDataQualityIssuesRightOperand"}
           ]
         }
       },

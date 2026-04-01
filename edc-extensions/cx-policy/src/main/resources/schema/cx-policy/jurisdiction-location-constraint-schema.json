@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/JurisdictionLocationConstraint"
+      "$ref": "#/$defs/JurisdictionLocationConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/jurisdiction-location-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "JurisdictionLocationConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/definitions/LocationStringRightOperand"
+          "$ref": "#/$defs/LocationStringRightOperand"
         }
       },
       "additionalProperties": false

@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/definitions/DataUsageEndDefinitionConstraint"
+      "$ref": "#/$defs/DataUsageEndDefinitionConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/data-usage-end-definition-constraint-schema.json",
-  "definitions": {
+  "$defs": {
     "DataUsageEndDefinitionConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/definitions/DataUsageEndDefinitionRightOperand"
+          "$ref": "#/$defs/DataUsageEndDefinitionRightOperand"
         }
       },
       "additionalProperties": false
