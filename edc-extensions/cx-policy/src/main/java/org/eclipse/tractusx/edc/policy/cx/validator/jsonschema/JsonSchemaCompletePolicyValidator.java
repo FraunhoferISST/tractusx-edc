@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class JsonSchemaCompletePolicyValidator implements JsonSchemaPolicyValidator {
 
-    private static final String CX_POLICY_SCHEMA_PREFIX = "https://w3id.org/catenax/2025/9/policy/schema";
+    private static final String CX_POLICY_SCHEMA_PREFIX = "https://w3id.org/catenax/2025/9/policy";
     private static final String CX_POLICY_SCHEMA_LOCATION = "classpath:schema/cx-policy";
 
     private static final String DSPACE_2025_SCHEMA_PREFIX = "https://w3id.org/dspace/2025/1/negotiation";
@@ -28,6 +28,7 @@ public class JsonSchemaCompletePolicyValidator implements JsonSchemaPolicyValida
 
     private final Map<String, String> prefixMappings = new HashMap<>() {
         {
+            put(CX_POLICY_SCHEMA_PREFIX + "/schema", CX_POLICY_SCHEMA_LOCATION);
             put(CX_POLICY_SCHEMA_PREFIX, CX_POLICY_SCHEMA_LOCATION);
             put(DSPACE_2025_SCHEMA_PREFIX, DSPACE_2025_SCHEMA_LOCATION);
         }
