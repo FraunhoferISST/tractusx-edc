@@ -163,7 +163,7 @@ public class PolicyHelperFunctions {
                 //.add(TYPE, ODRL_CONSTRAINT_TYPE)
                 .add("leftOperand", USAGE_PURPOSE_LITERAL)
                 .add("operator", "isAnyOf")
-                .add("rightOperand", "cx.pcf.base:1")
+                .add("rightOperand", Json.createArrayBuilder().add("cx.pcf.base:1").build())
                 .build();
     }
     
