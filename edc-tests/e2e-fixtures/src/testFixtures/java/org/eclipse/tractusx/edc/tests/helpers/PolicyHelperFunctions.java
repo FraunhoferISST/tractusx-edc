@@ -354,6 +354,8 @@ public class PolicyHelperFunctions {
                     .build());
         } else if (rightOperand instanceof Collection<?> coll) {
             builder.add("rightOperand", coll.stream().map(Object::toString).collect(Collectors.joining(",")));
+        } else if (rightOperand instanceof Integer intValue) {
+            builder.add("rightOperand", intValue);
         } else {
             builder.add("rightOperand", rightOperand.toString());
         }

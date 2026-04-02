@@ -132,7 +132,7 @@ public class PolicyDefinitionEndToEndTest {
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("AffiliatesRegion", List.of("cx.region.europe:1")), "use", Operator.IS_ANY_OF, true)), "Affiliates Region (IS_ANY_OF, one element)"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("AffiliatesBpnl", "BPNL00000000001A"), "use", Operator.IS_ANY_OF, false)), "Affiliates BPNL"),
+                            frameworkConstraint(Map.of("AffiliatesBpnl", List.of("BPNL00000000001A")), "use", Operator.IS_ANY_OF, true)), "Affiliates BPNL"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("DataFrequency", "cx.dataFrequency.once:1"), "use", Operator.EQ, false)), "Data Frequency"),
                     Arguments.of(policyFromRules("permission", namespace,
