@@ -122,7 +122,8 @@
               }
             ]
           },
-          "minItems": 1
+          "minItems": 1,
+          "maxItems": 1
         },
         "prohibition": {
           "type": "array",
@@ -229,7 +230,33 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/UsagePermissionConstraint"
-          }
+          },
+          "uniqueItems": true,
+          "allOf": [
+            {
+              "description": "Rule 1: Maximum ONE Warranty constraint allowed",
+              "contains": {
+                "anyOf": [
+                  { "$ref": "https://w3id.org/catenax/2025/9/policy/warranty-duration-constraint-schema.json" },
+                  { "$ref": "https://w3id.org/catenax/2025/9/policy/warranty-definition-constraint-schema.json" }
+                ]
+              },
+              "maxContains": 1,
+              "minContains": 0
+            },
+            {
+              "description": "Rule 2: Maximum ONE Data Usage End constraint allowed",
+              "contains": {
+                "anyOf": [
+                  { "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-duration-days-constraint-schema.json" },
+                  { "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-date-constraint-schema.json" },
+                  { "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-definition-constraint-schema.json" }
+                ]
+              },
+              "maxContains": 1,
+              "minContains": 0
+            }
+          ]
         }
       },
       "required": [
