@@ -174,14 +174,7 @@
                     "minItems": 1,
                     "maxItems": 1,
                     "items": {
-                      "anyOf": [
-                        {
-                          "$ref": "https://w3id.org/catenax/2025/9/policy/data-provisioning-end-duration-days-constraint-schema.json"
-                        },
-                        {
-                          "$ref": "https://w3id.org/catenax/2025/9/policy/data-provisioning-end-date-constraint-schema.json"
-                        }
-                      ]
+                      "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/$defs/AtomicProhibitionConstraint"
                     }
                   }
                 },
