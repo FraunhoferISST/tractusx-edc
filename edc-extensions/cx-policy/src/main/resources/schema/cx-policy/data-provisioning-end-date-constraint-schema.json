@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/DataProvisioningEndDateConstraint"
+      "$ref": "#/definitions/DataProvisioningEndDateConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/data-provisioning-end-date-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "DataProvisioningEndDateConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/$defs/DataProvisioningEndDateRightOperand"
+          "$ref": "#/definitions/DataProvisioningEndDateRightOperand"
         }
       },
       "additionalProperties": false

@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/AffiliatesRegionConstraint"
+      "$ref": "#/definitions/AffiliatesRegionConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/affiliates-region-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "AffiliatesRegionConstraint": {
       "type": "object",
       "properties": {
@@ -25,14 +25,14 @@
           "minItems": 1,
           "items": {
             "anyOf": [
-              {"$ref": "#/$defs/RegionAllRightOperand"},
-              {"$ref": "#/$defs/RegionEuropeRightOperand"},
-              {"$ref": "#/$defs/RegionNorthAmericaRightOperand"},
-              {"$ref": "#/$defs/RegionSouthAmericaRightOperand"},
-              {"$ref": "#/$defs/RegionAfricaRightOperand"},
-              {"$ref": "#/$defs/RegionAsiaRightOperand"},
-              {"$ref": "#/$defs/RegionOceaniaRightOperand"},
-              {"$ref": "#/$defs/RegionAntarcticaRightOperand"}
+              {"$ref": "#/definitions/RegionAllRightOperand"},
+              {"$ref": "#/definitions/RegionEuropeRightOperand"},
+              {"$ref": "#/definitions/RegionNorthAmericaRightOperand"},
+              {"$ref": "#/definitions/RegionSouthAmericaRightOperand"},
+              {"$ref": "#/definitions/RegionAfricaRightOperand"},
+              {"$ref": "#/definitions/RegionAsiaRightOperand"},
+              {"$ref": "#/definitions/RegionOceaniaRightOperand"},
+              {"$ref": "#/definitions/RegionAntarcticaRightOperand"}
             ]
           }
         }

@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/ConfidentialInformationMeasuresConstraint"
+      "$ref": "#/definitions/ConfidentialInformationMeasuresConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/confidential-information-measures-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "ConfidentialInformationMeasuresConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/$defs/ConfidentialityMeasuresRightOperand"
+          "$ref": "#/definitions/ConfidentialityMeasuresRightOperand"
         }
       },
       "additionalProperties": false

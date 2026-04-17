@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/UsageRestrictionConstraint"
+      "$ref": "#/definitions/UsageRestrictionConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/usage-restriction-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "UsageRestrictionConstraint": {
       "type": "object",
       "properties": {
@@ -25,11 +25,11 @@
           "minItems": 1,
           "items": {
             "anyOf": [
-              {"$ref": "#/$defs/ThirdPartyForbiddenRightOperand"},
-              {"$ref": "#/$defs/ManipulationForbiddenRightOperand"},
-              {"$ref": "#/$defs/DerivationsForbiddenRightOperand"},
-              {"$ref": "#/$defs/ExtraordinaryAnalyticsForbiddenRightOperand"},
-              {"$ref": "#/$defs/DataProviderRemovalForbiddenRightOperand"}
+              {"$ref": "#/definitions/ThirdPartyForbiddenRightOperand"},
+              {"$ref": "#/definitions/ManipulationForbiddenRightOperand"},
+              {"$ref": "#/definitions/DerivationsForbiddenRightOperand"},
+              {"$ref": "#/definitions/ExtraordinaryAnalyticsForbiddenRightOperand"},
+              {"$ref": "#/definitions/DataProviderRemovalForbiddenRightOperand"}
             ]
           }
         }

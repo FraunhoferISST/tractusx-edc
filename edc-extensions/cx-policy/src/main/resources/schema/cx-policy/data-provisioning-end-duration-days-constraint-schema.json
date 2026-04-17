@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/DataProvisioningEndDurationDaysConstraint"
+      "$ref": "#/definitions/DataProvisioningEndDurationDaysConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/data-provisioning-end-duration-days-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "DataProvisioningEndDurationDaysConstraint": {
       "type": "object",
       "properties": {
@@ -21,13 +21,16 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/$defs/DataProvisioningEndDurationDaysRightOperand"
+          "$ref": "#/definitions/DataProvisioningEndDurationDaysRightOperand"
         }
       },
       "additionalProperties": false
     },
     "DataProvisioningEndDurationDaysRightOperand": {
-      "type": "integer",
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
       "$comment": "{\"obligation\":\"The Data Provider shall make the Data available for the period specified herein in days, commencing from the second the Agreement is concluded via the Registered Connector (RC).\"}"
     }
   }

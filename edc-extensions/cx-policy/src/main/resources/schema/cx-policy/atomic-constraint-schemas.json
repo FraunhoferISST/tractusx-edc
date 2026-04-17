@@ -4,36 +4,36 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/AtomicCatenaXConstraint"
+      "$ref": "#/definitions/AtomicCatenaXConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json",
-  "$defs": {
+  "definitions": {
     "AtomicCatenaXConstraint": {
       "anyOf": [
         {
-          "$ref": "#/$defs/AtomicObligationConstraint"
+          "$ref": "#/definitions/AtomicObligationConstraint"
         },
         {
-          "$ref": "#/$defs/AtomicPermissionConstraint"
+          "$ref": "#/definitions/AtomicPermissionConstraint"
         },
         {
-          "$ref": "#/$defs/AtomicProhibitionConstraint"
+          "$ref": "#/definitions/AtomicProhibitionConstraint"
         }
       ]
     },
     "AtomicPermissionConstraint": {
       "allOf": [
         {
-          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/AtomicConstraint"
+          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/AtomicConstraint"
         },
         {
           "anyOf": [
             {
-              "$ref": "#/$defs/AtomicAccessPermissionConstraint"
+              "$ref": "#/definitions/AtomicAccessPermissionConstraint"
             },
             {
-              "$ref": "#/$defs/AtomicUsagePermissionConstraint"
+              "$ref": "#/definitions/AtomicUsagePermissionConstraint"
             }
           ]
         }
@@ -142,7 +142,7 @@
     "AtomicObligationConstraint": {
       "allOf": [
         {
-          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/AtomicConstraint"
+          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/AtomicConstraint"
         },
         {
           "oneOf": [
@@ -159,7 +159,7 @@
     "AtomicProhibitionConstraint": {
       "allOf": [
         {
-          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/AtomicConstraint"
+          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/AtomicConstraint"
         },
         {
           "anyOf": [

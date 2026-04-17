@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/PrecedenceConstraint"
+      "$ref": "#/definitions/PrecedenceConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/precedence-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "PrecedenceConstraint": {
       "type": "object",
       "properties": {
@@ -22,8 +22,8 @@
         },
         "rightOperand": {
           "oneOf": [
-            {"$ref": "#/$defs/PrecedenceContractReferenceRightOperand"},
-            {"$ref": "#/$defs/PrecedenceRcAgreementRightOperand"}
+            {"$ref": "#/definitions/PrecedenceContractReferenceRightOperand"},
+            {"$ref": "#/definitions/PrecedenceRcAgreementRightOperand"}
           ]
         }
       },

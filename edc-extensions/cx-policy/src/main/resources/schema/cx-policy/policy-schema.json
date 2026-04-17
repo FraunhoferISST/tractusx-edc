@@ -4,23 +4,23 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/CatenaXPolicy"
+      "$ref": "#/definitions/CatenaXPolicy"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/schema/policy-schema.json",
-  "$defs": {
+  "definitions": {
     "CatenaXPolicy": {
       "allOf": [
         {
-          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/PolicyClass"
+          "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/PolicyClass"
         },
         {
           "anyOf": [
             {
-              "$ref": "#/$defs/AccessPolicy"
+              "$ref": "#/definitions/AccessPolicy"
             },
             {
-              "$ref": "#/$defs/UsagePolicy"
+              "$ref": "#/definitions/UsagePolicy"
             }
           ]
         }
@@ -34,7 +34,7 @@
           "items": {
             "allOf": [
               {
-                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/Rule"
+                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/Rule"
               },
               {
                 "properties": {
@@ -45,7 +45,7 @@
                   "constraint": {
                     "type": "array",
                     "items": {
-                      "$ref": "#/$defs/AccessPermissionConstraint"
+                      "$ref": "#/definitions/AccessPermissionConstraint"
                     },
                     "uniqueItems": true
                   }
@@ -69,10 +69,10 @@
       "type": "object",
       "oneOf": [
         {
-          "$ref": "#/$defs/AccessPermissionLogicalConstraint"
+          "$ref": "#/definitions/AccessPermissionLogicalConstraint"
         },
         {
-          "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/$defs/AtomicAccessPermissionConstraint"
+          "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/definitions/AtomicAccessPermissionConstraint"
         }
       ]
     },
@@ -82,7 +82,7 @@
         "and": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/AccessPermissionConstraint"
+            "$ref": "#/definitions/AccessPermissionConstraint"
           }
         }
       },
@@ -98,7 +98,7 @@
           "items": {
             "allOf": [
               {
-                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/Rule"
+                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/Rule"
               },
               {
                 "properties": {
@@ -111,9 +111,8 @@
                     "minItems": 1,
                     "maxItems": 1,
                     "items": {
-                      "$ref": "#/$defs/UsagePermissionConstraint"
-                    },
-                    "uniqueItems": true
+                      "$ref": "#/definitions/UsagePermissionConstraint"
+                    }
                   }
                 },
                 "required": [
@@ -130,7 +129,7 @@
           "items": {
             "allOf": [
               {
-                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/Rule"
+                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/Rule"
               },
               {
                 "properties": {
@@ -143,9 +142,8 @@
                     "minItems": 1,
                     "maxItems": 1,
                     "items": {
-                      "$ref": "#/$defs/UsageProhibitionConstraint"
-                    },
-                    "uniqueItems": true
+                      "$ref": "#/definitions/UsageProhibitionConstraint"
+                    }
                   }
                 },
                 "required": [
@@ -161,7 +159,7 @@
           "items": {
             "allOf": [
               {
-                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/$defs/Rule"
+                "$ref": "https://w3id.org/dspace/2025/1/negotiation/contract-schema.json#/definitions/Rule"
               },
               {
                 "properties": {
@@ -174,7 +172,7 @@
                     "minItems": 1,
                     "maxItems": 1,
                     "items": {
-                      "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/$defs/AtomicProhibitionConstraint"
+                      "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/definitions/AtomicProhibitionConstraint"
                     }
                   }
                 },
@@ -209,10 +207,10 @@
       "type": "object",
       "oneOf": [
         {
-          "$ref": "#/$defs/UsagePermissionLogicalConstraint"
+          "$ref": "#/definitions/UsagePermissionLogicalConstraint"
         },
         {
-          "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/$defs/AtomicUsagePermissionConstraint"
+          "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/definitions/AtomicUsagePermissionConstraint"
         }
       ]
     },
@@ -222,7 +220,7 @@
         "and": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/UsagePermissionConstraint"
+            "$ref": "#/definitions/UsagePermissionConstraint"
           },
           "uniqueItems": true,
           "allOf": [
@@ -230,8 +228,12 @@
               "description": "Rule 1: Maximum ONE Warranty constraint allowed",
               "contains": {
                 "anyOf": [
-                  { "$ref": "https://w3id.org/catenax/2025/9/policy/warranty-duration-constraint-schema.json" },
-                  { "$ref": "https://w3id.org/catenax/2025/9/policy/warranty-definition-constraint-schema.json" }
+                  {
+                    "$ref": "https://w3id.org/catenax/2025/9/policy/warranty-duration-constraint-schema.json"
+                  },
+                  {
+                    "$ref": "https://w3id.org/catenax/2025/9/policy/warranty-definition-constraint-schema.json"
+                  }
                 ]
               },
               "maxContains": 1,
@@ -241,9 +243,15 @@
               "description": "Rule 2: Maximum ONE Data Usage End constraint allowed",
               "contains": {
                 "anyOf": [
-                  { "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-duration-days-constraint-schema.json" },
-                  { "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-date-constraint-schema.json" },
-                  { "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-definition-constraint-schema.json" }
+                  {
+                    "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-duration-days-constraint-schema.json"
+                  },
+                  {
+                    "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-date-constraint-schema.json"
+                  },
+                  {
+                    "$ref": "https://w3id.org/catenax/2025/9/policy/data-usage-end-definition-constraint-schema.json"
+                  }
                 ]
               },
               "maxContains": 1,
@@ -260,10 +268,10 @@
       "type": "object",
       "oneOf": [
         {
-          "$ref": "#/$defs/UsageProhibitionLogicalConstraint"
+          "$ref": "#/definitions/UsageProhibitionLogicalConstraint"
         },
         {
-          "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/$defs/AtomicProhibitionConstraint"
+          "$ref": "https://w3id.org/catenax/2025/9/policy/schema/atomic-constraint-schemas.json#/definitions/AtomicProhibitionConstraint"
         }
       ]
     },
@@ -273,7 +281,7 @@
         "and": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/UsageProhibitionConstraint"
+            "$ref": "#/definitions/UsageProhibitionConstraint"
           }
         }
       },

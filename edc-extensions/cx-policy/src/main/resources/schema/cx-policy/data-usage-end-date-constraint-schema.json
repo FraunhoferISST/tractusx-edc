@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/DataUsageEndDateConstraint"
+      "$ref": "#/definitions/DataUsageEndDateConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/data-usage-end-date-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "DataUsageEndDateConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/$defs/DataUsageEndDateRightOperand"
+          "$ref": "#/definitions/DataUsageEndDateRightOperand"
         }
       },
       "additionalProperties": false

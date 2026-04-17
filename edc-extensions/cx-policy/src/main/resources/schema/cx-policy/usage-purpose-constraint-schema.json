@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/UsagePurposeConstraint"
+      "$ref": "#/definitions/UsagePurposeConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/usage-purpose-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "UsagePurposeConstraint": {
       "type": "object",
       "properties": {
@@ -25,35 +25,35 @@
           "minItems": 1,
           "items": {
             "anyOf": [
-              {"$ref": "#/$defs/CoreLegalRequirementForThirdPartyRightOperand"},
-              {"$ref": "#/$defs/CoreIndustrycoreRightOperand"},
-              {"$ref": "#/$defs/CoreQualityNotificationsRightOperand"},
-              {"$ref": "#/$defs/CoreDigitalTwinRegistry"},
-              {"$ref": "#/$defs/PfcBaseRightOperand"},
-              {"$ref": "#/$defs/QualityBaseRightOperand"},
-              {"$ref": "#/$defs/DcmBaseRightOperand"},
-              {"$ref": "#/$defs/PurisBaseRightOperand"},
-              {"$ref": "#/$defs/CircularDppRightOperand"},
-              {"$ref": "#/$defs/CircularSmcRightOperand"},
-              {"$ref": "#/$defs/CircularMarketplaceRightOperand"},
-              {"$ref": "#/$defs/CircularMaterialaccountingRightOperand"},
-              {"$ref": "#/$defs/BpdmGateUploadRightOperand"},
-              {"$ref": "#/$defs/BpdmGateDownloadRightOperand"},
-              {"$ref": "#/$defs/BpdmPoolRightOperand"},
-              {"$ref": "#/$defs/BpdmVasDataqualityUploadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasDataqualityDownloadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasCountryrisk"},
-              {"$ref": "#/$defs/BpdmVasBdvUploadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasFpdUploadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasFpdDownloadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasSwdUploadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasSwdDownloadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasNpsUploadRightOperand"},
-              {"$ref": "#/$defs/BpdmVasNpsDownloadRightOperand"},
-              {"$ref": "#/$defs/CcmBaseRightOperand"},
-              {"$ref": "#/$defs/BpdmPoolAllRightOperand"},
-              {"$ref": "#/$defs/LogisticsBaseRightOperand"},
-              {"$ref": "#/$defs/UsagePurposeIndividualRightOperand"}
+              {"$ref": "#/definitions/CoreLegalRequirementForThirdPartyRightOperand"},
+              {"$ref": "#/definitions/CoreIndustrycoreRightOperand"},
+              {"$ref": "#/definitions/CoreQualityNotificationsRightOperand"},
+              {"$ref": "#/definitions/CoreDigitalTwinRegistry"},
+              {"$ref": "#/definitions/PfcBaseRightOperand"},
+              {"$ref": "#/definitions/QualityBaseRightOperand"},
+              {"$ref": "#/definitions/DcmBaseRightOperand"},
+              {"$ref": "#/definitions/PurisBaseRightOperand"},
+              {"$ref": "#/definitions/CircularDppRightOperand"},
+              {"$ref": "#/definitions/CircularSmcRightOperand"},
+              {"$ref": "#/definitions/CircularMarketplaceRightOperand"},
+              {"$ref": "#/definitions/CircularMaterialaccountingRightOperand"},
+              {"$ref": "#/definitions/BpdmGateUploadRightOperand"},
+              {"$ref": "#/definitions/BpdmGateDownloadRightOperand"},
+              {"$ref": "#/definitions/BpdmPoolRightOperand"},
+              {"$ref": "#/definitions/BpdmVasDataqualityUploadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasDataqualityDownloadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasCountryrisk"},
+              {"$ref": "#/definitions/BpdmVasBdvUploadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasFpdUploadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasFpdDownloadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasSwdUploadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasSwdDownloadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasNpsUploadRightOperand"},
+              {"$ref": "#/definitions/BpdmVasNpsDownloadRightOperand"},
+              {"$ref": "#/definitions/CcmBaseRightOperand"},
+              {"$ref": "#/definitions/BpdmPoolAllRightOperand"},
+              {"$ref": "#/definitions/LogisticsBaseRightOperand"},
+              {"$ref": "#/definitions/UsagePurposeIndividualRightOperand"}
             ]
           }
         }

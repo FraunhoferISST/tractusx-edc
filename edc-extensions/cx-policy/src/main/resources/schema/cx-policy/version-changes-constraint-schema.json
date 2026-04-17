@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/VersionChangesConstraint"
+      "$ref": "#/definitions/VersionChangesConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/version-changes-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "VersionChangesConstraint": {
       "type": "object",
       "properties": {
@@ -22,8 +22,8 @@
         },
         "rightOperand": {
           "oneOf": [
-            {"$ref": "#/$defs/VersionChangesMinorRightOperand"},
-            {"$ref": "#/$defs/VersionChangesMajorRightOperand"}
+            {"$ref": "#/definitions/VersionChangesMinorRightOperand"},
+            {"$ref": "#/definitions/VersionChangesMajorRightOperand"}
           ]
         }
       },
@@ -32,7 +32,7 @@
     "VersionChangesMinorRightOperand": {
       "type": "string",
       "const": "cx.versionChanges.minor:1",
-      "$comment": "{\"permission\":\"The Agreement concluded via the Registered Connector (RC) covers only the exchange of Data effected on the basis of the major API version (as specified in the dataset attribute base-URL), the major Asset-Version (dataset attribute cx-common:version), and/or the major Aspect Model Version as applicable at the time of concluding the Agreement. The Agreement concluded via the RC must be renegotiated in the event of any change to at least one of these major versions. The Agreement does not need to be renegotiated in the event of any change to one of these minor versions. The $defs of major and minor version is based on Semantic Versioning (https://semver.org/).\"}"
+      "$comment": "{\"permission\":\"The Agreement concluded via the Registered Connector (RC) covers only the exchange of Data effected on the basis of the major API version (as specified in the dataset attribute base-URL), the major Asset-Version (dataset attribute cx-common:version), and/or the major Aspect Model Version as applicable at the time of concluding the Agreement. The Agreement concluded via the RC must be renegotiated in the event of any change to at least one of these major versions. The Agreement does not need to be renegotiated in the event of any change to one of these minor versions. The definitions of major and minor version is based on Semantic Versioning (https://semver.org/).\"}"
     },
     "VersionChangesMajorRightOperand": {
       "type": "string",

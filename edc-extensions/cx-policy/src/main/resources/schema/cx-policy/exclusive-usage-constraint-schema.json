@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/ExclusiveUsageConstraint"
+      "$ref": "#/definitions/ExclusiveUsageConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/exclusive-usage-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "ExclusiveUsageConstraint": {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
           "const": "eq"
         },
         "rightOperand": {
-          "$ref": "#/$defs/ExclusiveUsageDataConsumerRightOperand"
+          "$ref": "#/definitions/ExclusiveUsageDataConsumerRightOperand"
         }
       },
       "additionalProperties": false

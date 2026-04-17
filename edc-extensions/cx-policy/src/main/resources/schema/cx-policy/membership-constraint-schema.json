@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/MembershipConstraint"
+      "$ref": "#/definitions/MembershipConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/membership-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "MembershipConstraint": {
       "type": "object",
       "properties": {

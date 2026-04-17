@@ -122,3 +122,10 @@ edc-tests/miw-tests/src/test/resources/docker-environment/postgres_data/
 # Allure Results
 
 **/allure-results/*
+
+# jdtls
+*.prefs
+*.classpath
+*.project
+*.factorypath
+

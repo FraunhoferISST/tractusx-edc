@@ -4,11 +4,11 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "#/$defs/LiabilityConstraint"
+      "$ref": "#/definitions/LiabilityConstraint"
     }
   ],
   "$id": "https://w3id.org/catenax/2025/9/policy/liability-constraint-schema.json",
-  "$defs": {
+  "definitions": {
     "LiabilityConstraint": {
       "type": "object",
       "properties": {
@@ -22,8 +22,8 @@
         },
         "rightOperand": {
           "oneOf": [
-            {"$ref": "#/$defs/GrossNegligenceRightOperand"},
-            {"$ref": "#/$defs/SlightNegligenceRightOperand"}
+            {"$ref": "#/definitions/GrossNegligenceRightOperand"},
+            {"$ref": "#/definitions/SlightNegligenceRightOperand"}
           ]
         }
       },
