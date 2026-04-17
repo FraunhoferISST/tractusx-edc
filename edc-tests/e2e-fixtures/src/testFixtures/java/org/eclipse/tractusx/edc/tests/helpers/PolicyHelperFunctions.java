@@ -372,5 +372,3 @@ public class PolicyHelperFunctions {
         return parts[parts.length - 1];
     }
 }
-
-

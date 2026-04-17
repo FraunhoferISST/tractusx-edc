@@ -214,9 +214,11 @@ public class PolicyDefinitionEndToEndTest {
                     Arguments.of(policyWithEmptyRule("use", this.namespace),
                             "Usage policy with empty permission"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("Membership", "active"), "access", Operator.EQ, false),
-                            frameworkConstraint(Map.of("UsagePurpose", List.of("cx.core.industrycore:1")), "use", Operator.IS_ANY_OF, true)),
-                            "Policy with different actions types"),
+                            frameworkConstraint(Map.of(
+                                    "Membership", "active",
+                                    "UsagePurpose", List.of("cx.core.industrycore:1")
+                            ), "access", Operator.EQ, true)),
+                            "Policy with mixed constraints in one permission"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("Membership", "active"), "unknown-action", Operator.EQ, false)),
                             "Policy with unknown actions types"),
@@ -236,8 +238,10 @@ public class PolicyDefinitionEndToEndTest {
                             frameworkConstraint(Map.of("UsagePurpose", "cx.core.industrycore:1"), "use", Operator.EQ, false)),
                             "Usage policy obligation with not allowed constraints"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("WarrantyDurationMonths", List.of(3)), "use", Operator.EQ, true),
-                            frameworkConstraint(Map.of("WarrantyDefinition", "cx.warranty.contractEndDate:1"), "use", Operator.EQ, false)),
+                            frameworkConstraint(Map.of(
+                                    "WarrantyDurationMonths", List.of(3),
+                                    "WarrantyDefinition", "cx.warranty.contractEndDate:1"
+                            ), "use", Operator.EQ, true)),
                             "Policy with mutually exclusive constraints")
             );
         }
