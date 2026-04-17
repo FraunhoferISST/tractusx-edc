@@ -348,10 +348,15 @@ public class PolicyHelperFunctions {
                 .add("operator", operator);
 
         if (rightOperand instanceof Collection<?> coll && createRightOperandsAsArray) {
-            builder.add("rightOperand", coll.stream()
-                    .map(Object::toString)
-                    .collect(Json::createArrayBuilder, JsonArrayBuilder::add, JsonArrayBuilder::add)
-                    .build());
+            var arrayBuilder = Json.createArrayBuilder();
+            for (Object item : coll) {
+                if (item instanceof Integer intValue) {
+                    arrayBuilder.add(intValue);
+                } else {
+                    arrayBuilder.add(item.toString());
+                }
+            }
+            builder.add("rightOperand", arrayBuilder.build());
         } else if (rightOperand instanceof Collection<?> coll) {
             builder.add("rightOperand", coll.stream().map(Object::toString).collect(Collectors.joining(",")));
         } else if (rightOperand instanceof Integer intValue) {
@@ -367,3 +372,5 @@ public class PolicyHelperFunctions {
         return parts[parts.length - 1];
     }
 }
+
+

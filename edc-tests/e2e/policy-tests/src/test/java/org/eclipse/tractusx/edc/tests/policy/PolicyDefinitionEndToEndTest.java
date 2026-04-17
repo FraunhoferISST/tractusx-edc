@@ -140,7 +140,7 @@ public class PolicyDefinitionEndToEndTest {
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("DataUsageEndDefinition", "cx.dataUsageEnd.unlimited:1"), "use", Operator.EQ, false)), "Data Usage End Date Definition"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("DataUsageEndDurationDays", 3), "use", Operator.EQ, false)), "Data Usage End Duration Days"),
+                            frameworkConstraint(Map.of("DataUsageEndDurationDays", List.of(3)), "use", Operator.EQ, true)), "Data Usage End Duration Days"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("JurisdictionLocation", "test location"), "use", Operator.EQ, false)), "Jurisdiction Location"),
                     Arguments.of(policyFromRules("permission", namespace,
@@ -160,7 +160,7 @@ public class PolicyDefinitionEndToEndTest {
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("WarrantyDefinition", "cx.warranty.contractEndDate:1"), "use", Operator.EQ, false)), "Warranty Definition"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("WarrantyDurationMonths", 3), "use", Operator.EQ, false)), "Warranty Duration Months"),
+                            frameworkConstraint(Map.of("WarrantyDurationMonths", List.of(3)), "use", Operator.EQ, true)), "Warranty Duration Months"),
                     Arguments.of(policyFromRules("permission", namespace,
                             frameworkConstraint(Map.of("ExclusiveUsage", "cx.exclusiveUsage.dataConsumer:1"), "use", Operator.EQ, false)), "Exclusive Usage"),
                     Arguments.of(policyFromRules("permission", namespace,
@@ -236,7 +236,7 @@ public class PolicyDefinitionEndToEndTest {
                             frameworkConstraint(Map.of("UsagePurpose", "cx.core.industrycore:1"), "use", Operator.EQ, false)),
                             "Usage policy obligation with not allowed constraints"),
                     Arguments.of(policyFromRules("permission", namespace,
-                            frameworkConstraint(Map.of("WarrantyDurationMonths", 3), "use", Operator.EQ, false),
+                            frameworkConstraint(Map.of("WarrantyDurationMonths", List.of(3)), "use", Operator.EQ, true),
                             frameworkConstraint(Map.of("WarrantyDefinition", "cx.warranty.contractEndDate:1"), "use", Operator.EQ, false)),
                             "Policy with mutually exclusive constraints")
             );
