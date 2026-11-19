@@ -34,8 +34,6 @@ import org.eclipse.edc.sql.QueryExecutor;
 import org.eclipse.edc.transaction.datasource.spi.DataSourceRegistry;
 import org.eclipse.edc.transaction.spi.TransactionContext;
 
-import java.util.Objects;
-
 import static java.lang.String.format;
 
 /**
@@ -48,8 +46,6 @@ import static java.lang.String.format;
 public class CatalogScalingExtension implements ServiceExtension {
 
     public static final String NAME = "Catalog Scaling Extension";
-    private static final String SQL_SCRIPT_PATH = "/sql/script.sql";
-    private static final int DEFAULT_CONTRACT_DEFINITION_COPY_BATCH_SIZE = 5000;
 
     // same @Setting annotations as used by SQL Asset Index, Contract Definition Store and Policy Store extension respectively
     @Setting(description = "The datasource to be used for storing assets.", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.asset.datasource")
@@ -58,10 +54,6 @@ public class CatalogScalingExtension implements ServiceExtension {
     private String contractDefinitionDataSourceName;
     @Setting(description = "The datasource to be used for storing policy definitions.", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.policy.datasource")
     private String policyDataSourceName;
-
-    @Setting(key = "edc.sql.store.contractdefinition.copy.batch.size", defaultValue = "" + DEFAULT_CONTRACT_DEFINITION_COPY_BATCH_SIZE,
-            description = "The number of authorized access policy IDs per batch when copying contract definitions to a temporary Postgres table.")
-    private int contractDefinitionCopyBatchSize;
 
     // must be injected here to ensure this extension is loaded after the upstream catalog extension, so that it can override upstream's DatasetResolver
     @Inject
@@ -98,13 +90,10 @@ public class CatalogScalingExtension implements ServiceExtension {
 
         var queryManager = new CatalogRequestQueryManager(dataSourceRegistry, dataSourceName, transactionContext,
                 typeManager.getMapper(), queryExecutor, new WrappedAssetStatements(),
-                new org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.postgres.PostgresDialectStatements(),
-                contractDefinitionCopyBatchSize);
+                new org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.postgres.PostgresDialectStatements());
         var contractDefinitionResolver = new AuthorizedAccessPolicyResolver(queryManager, policyEngine);
 
         context.registerService(DatasetResolver.class, new ScalingDatasetResolver(contractDefinitionResolver,
-                queryManager, policyDefinitionStore, distributionResolver,
-                () -> Objects.requireNonNull(dataSourceRegistry.resolve(dataSourceName), format("DataSource %s could not be resolved", dataSourceName)),
-                transactionContext));
+                queryManager, policyDefinitionStore, distributionResolver));
     }
 }

@@ -39,7 +39,6 @@ import org.eclipse.edc.transaction.datasource.spi.DataSourceRegistry;
 import org.eclipse.edc.transaction.spi.TransactionContext;
 import org.eclipse.tractusx.edc.catalog.AuthorizedAsset.MatchingContractDefinition;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -47,9 +46,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.lang.String.format;
 
@@ -71,16 +68,14 @@ public class CatalogRequestQueryManager extends AbstractSqlStore {
 
     private final WrappedAssetStatements assetStatements;
     private final SqlPolicyStoreStatements policyStatements;
-    private final int copyBatchSize;
 
     public CatalogRequestQueryManager(DataSourceRegistry dataSourceRegistry, String dataSourceName,
                                       TransactionContext transactionContext, ObjectMapper objectMapper,
                                       QueryExecutor queryExecutor, WrappedAssetStatements assetStatements,
-                                      SqlPolicyStoreStatements policyStatements, int copyBatchSize) {
+                                      SqlPolicyStoreStatements policyStatements) {
         super(dataSourceRegistry, dataSourceName, transactionContext, objectMapper, queryExecutor);
         this.assetStatements = assetStatements;
         this.policyStatements = policyStatements;
-        this.copyBatchSize = copyBatchSize;
     }
 
     /**
@@ -106,134 +101,55 @@ public class CatalogRequestQueryManager extends AbstractSqlStore {
     }
 
     /**
-     * Creates a temporary table for storing contract definitions. The schema and defaults of the
-     * temporary table match the original contract definitions table.
-     *
-     * @param connection the database connection to use
-     * @return the name of the creates temporary table
-     */
-    public String createTemporaryContractDefinitionTable(Connection connection) {
-        return transactionContext.execute(() -> {
-            try {
-                if (connection.getAutoCommit()) {
-                    throw new EdcPersistenceException("Connection must not be in auto-commit mode, as the temporary contract definition table would be dropped immediately.");
-                }
-
-                var tableName = "edc_tmp_cd_" + UUID.randomUUID().toString().replace("-", "");
-                var sql = """
-                        CREATE TEMPORARY TABLE %s
-                        (LIKE edc_contract_definitions INCLUDING DEFAULTS)
-                        ON COMMIT DROP;
-                        """.formatted(tableName);
-                queryExecutor.execute(connection, sql);
-                return tableName;
-            } catch (SQLException e) {
-                throw new EdcPersistenceException(format("Failed to create temporary contract definition table: %s", e.getMessage()), e);
-            }
-        });
-    }
-
-    /**
-     * Copies contract definitions to a temporary table by access policy IDs.
-     *
-     * @param connection the database connection to use
-     * @param participantContextId the participant context ID
-     * @param tempTableName the name of the temporary table
-     * @param accessPolicyIds the authorized access policy IDs
-     */
-    public void copyAuthorizedContractDefinitions(Connection connection, String participantContextId,
-                                                  String tempTableName, Collection<String> accessPolicyIds) {
-        transactionContext.execute(() -> {
-            try {
-                var sql = copyToTempTableStatement(tempTableName);
-                var ids = accessPolicyIds.toArray(String[]::new);
-
-                for (var fromIndex = 0; fromIndex < ids.length; fromIndex += copyBatchSize) {
-                    var toIndex = Math.min(fromIndex + copyBatchSize, ids.length);
-                    var sqlArray = connection.createArrayOf("varchar", Arrays.copyOfRange(ids, fromIndex, toIndex));
-
-                    try {
-                        queryExecutor.execute(connection, sql, participantContextId, sqlArray);
-                    } finally {
-                        sqlArray.free();
-                    }
-                }
-            } catch (SQLException e) {
-                throw new EdcPersistenceException(format("Failed to copy authorized contract definitions to temp table %s: %s", tempTableName, e.getMessage()), e);
-            }
-        });
-    }
-
-    /**
-     * Runs ANALYZE on a temporary table to update the statistics for the query planner, in order to
-     * increase performance when joining with the temporary table.
-     * <p>
-     * ANALYZE is run only on the id and participant context id columns, as the planner only
-     * needs the row count and the statistics of the join column (which is participant context id).
-     * Sampling the JSON(B)/jsonpath columns would multiply the cost of ANALYZE
-     *
-     * @param connection the database connection to use
-     * @param tempTableName the name of the temporary table
-     */
-    public void runAnalyze(Connection connection, String tempTableName) {
-        transactionContext.execute(() -> {
-            try {
-                var sql = "ANALYZE %s (contract_definition_id, participant_context_id)".formatted(tempTableName);
-                queryExecutor.execute(connection, sql);
-            } catch (Exception e) {
-                throw new EdcPersistenceException(format("Failed to analyze temp table %s: %s", tempTableName, e.getMessage()), e);
-            }
-        });
-    }
-
-    /**
      * Queries for all assets matching the given QuerySpec filters and with at least one matching
-     * contract definition in the given temporary table. Uses the function
-     * edc_find_matching_assets_page.
+     * contract definition of the participant context, whose access policy is one of the given
+     * authorized access policies. Uses the function edc_find_matching_assets_page.
      *
-     * @param connection the database connection to use
-     * @param tempTableName the name of the temporary table
+     * @param participantContextId the participant context ID
+     * @param accessPolicyIds the authorized access policy IDs
      * @param querySpec the query spec
-     * @return a stream of authorized assets
+     * @return the authorized assets
      */
-    public Stream<AuthorizedAsset> queryAssetsWithMatchingContractDefinitions(Connection connection, String tempTableName,
-                                                                              QuerySpec querySpec) {
+    public List<AuthorizedAsset> queryAssetsWithMatchingContractDefinitions(String participantContextId,
+                                                                            Collection<String> accessPolicyIds,
+                                                                            QuerySpec querySpec) {
         return transactionContext.execute(() -> {
             var statement = assetStatements.createQuery(querySpec);
-            var parameters = WrappedAssetStatements.withTempTableName(tempTableName, statement.getParameters());
-            return queryExecutor.query(connection, false, this::mapAssetResultSet, statement.getQueryAsString(), parameters);
+            var parameters = WrappedAssetStatements.withAuthorizationParameters(participantContextId,
+                    accessPolicyIds.toArray(String[]::new), statement.getParameters());
+            try (var assets = queryExecutor.query(getConnection(), true, this::mapAssetResultSet,
+                    statement.getQueryAsString(), parameters)) {
+                return assets.toList();
+            } catch (SQLException e) {
+                throw new EdcPersistenceException(format("Failed to query assets: %s", e.getMessage()), e);
+            }
         });
     }
 
     /**
-     * Finds a single asset by its ID together with the IDs of the contract definitions in the given
-     * temporary table that select it. Returns an empty {@link Optional} if the asset does not exist
-     * or is not selected by any of those contract definitions.
+     * Finds a single asset of the participant context by its ID together with the IDs and contract
+     * policy IDs of the contract definitions of the participant context, whose access policy is
+     * one of the given authorized access policies, that select it. Returns an empty
+     * {@link Optional} if the asset does not exist or is not selected by any of those contract
+     * definitions.
      *
-     * @param connection the database connection to use
-     * @param tempTableName the name of the temporary table
+     * @param participantContextId the participant context ID
+     * @param accessPolicyIds the authorized access policy IDs
      * @param assetId the ID of the asset
      * @return an {@link Optional} containing the authorized asset if found, or empty if not found
      */
-    public Optional<AuthorizedAsset> findAssetWithMatchingContractDefinitions(Connection connection, String tempTableName,
+    public Optional<AuthorizedAsset> findAssetWithMatchingContractDefinitions(String participantContextId,
+                                                                              Collection<String> accessPolicyIds,
                                                                               String assetId) {
         return transactionContext.execute(() -> {
-            var sql = "SELECT * FROM edc_find_authorized_asset(?, ?)";
-            try (var assets = queryExecutor.query(connection, false, this::mapAssetResultSet, sql, tempTableName, assetId)) {
+            var sql = "SELECT * FROM edc_find_authorized_asset(?, ?::varchar[], ?)";
+            try (var assets = queryExecutor.query(getConnection(), true, this::mapAssetResultSet, sql,
+                    participantContextId, accessPolicyIds.toArray(String[]::new), assetId)) {
                 return assets.findFirst();
+            } catch (SQLException e) {
+                throw new EdcPersistenceException(format("Failed to find asset %s: %s", assetId, e.getMessage()), e);
             }
         });
-    }
-
-    private String copyToTempTableStatement(String tempTableName) {
-        return """
-                INSERT INTO %s (contract_definition_id, created_at, access_policy_id, contract_policy_id, assets_selector, private_properties, participant_context_id,
-                                selector_eq_filter, selector_ambiguous_filter, selector_eq_criteria, selector_other_criteria)
-                SELECT contract_definition_id, created_at, access_policy_id, contract_policy_id, assets_selector, private_properties, participant_context_id,
-                       selector_eq_filter, selector_ambiguous_filter, selector_eq_criteria, selector_other_criteria
-                FROM edc_contract_definitions
-                WHERE participant_context_id = ? AND access_policy_id = ANY(?::varchar[])
-                """.formatted(tempTableName);
     }
 
     private AuthorizedAsset mapAssetResultSet(ResultSet resultSet) throws SQLException {

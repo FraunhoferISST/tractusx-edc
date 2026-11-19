@@ -40,7 +40,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -63,8 +62,8 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
     private static final String ASSET_ID = "asset";
     private static final String DEFINITION_ID = "definition";
 
-    // for this test, all contract definitions are considered authorized, so no temporary table is used; contract definitions are read from original table
-    private static final String DEFINITIONS_TABLE = "edc_contract_definitions";
+    private static final String ACCESS_POLICY_ID = "accessPolicyId";
+    private static final String OTHER_ACCESS_POLICY_ID = "otherAccessPolicyId";
 
     @RegisterExtension
     static final PostgresqlStoreSetupExtension EXTENSION = new PostgresqlStoreSetupExtension(getPostgresTestContainerName());
@@ -84,7 +83,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
 
         queryManager = new CatalogRequestQueryManager(EXTENSION.getDataSourceRegistry(), EXTENSION.getDatasourceName(), EXTENSION.getTransactionContext(),
                 mapper, queryExecutor, new WrappedAssetStatements(),
-                new org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.postgres.PostgresDialectStatements(), 2);
+                new org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.postgres.PostgresDialectStatements());
 
         EXTENSION.runQuery(getResourceFileContentAsString("asset-index-schema.sql"));
         EXTENSION.runQuery(getResourceFileContentAsString("contract-definition-schema.sql"));
@@ -98,7 +97,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource({"scalarCriteria", "collectionCriteria", "propertyLookup", "combinedSelectors"})
-    void queryAssetWithMatchingDefinitionIds_verifyCriteriaEvaluatedCorrectly(MatchingCase testCase) throws SQLException {
+    void queryAssetWithMatchingDefinitionIds_verifyCriteriaEvaluatedCorrectly(MatchingCase testCase) {
         var asset = createAsset(ASSET_ID, PARTICIPANT_CONTEXT_ID, testCase.properties(), testCase.privateProperties());
         assertThat(assetIndex.create(asset)).isSucceeded();
 
@@ -112,7 +111,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("multipleAssets")
-    void queryAssetsWithMatchingDefinitionIds_verifyBulkQueryReturnsOnlyMatchingAsset(MultipleAssetsCase testCase) throws SQLException {
+    void queryAssetsWithMatchingDefinitionIds_verifyBulkQueryReturnsOnlyMatchingAsset(MultipleAssetsCase testCase) {
         var matchingAsset = createAsset(ASSET_ID, PARTICIPANT_CONTEXT_ID, testCase.matchingProperties(), testCase.matchingPrivateProperties());
         assertThat(assetIndex.create(matchingAsset)).isSucceeded();
 
@@ -126,7 +125,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
     }
 
     @Test
-    void queryAssetWithMatchingDefinitionIds_verifyNotMatchedWhenDifferentParticipantContextId() throws SQLException {
+    void queryAssetWithMatchingDefinitionIds_verifyNotMatchedWhenDifferentParticipantContextId() {
         assertThat(assetIndex.create(createAsset(ASSET_ID, OTHER_PARTICIPANT_CONTEXT_ID, Map.of("color", "red"),
                 Map.of()))).isSucceeded();
         assertThat(contractDefinitionStore.save(createContractDefinition(DEFINITION_ID, PARTICIPANT_CONTEXT_ID,
@@ -136,42 +135,84 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
         verifyBulkQuery(ASSET_ID, List.of());
     }
 
-    /**
-     * Verifies the bulk query (catalog request) returns only the asset with exactly the expected contract definition IDs, or nothing
-     * if no definitions are expected.
-     */
-    private void verifyBulkQuery(String assetId, List<String> expectedDefinitionIds) throws SQLException {
-        try (var connection = EXTENSION.getConnection();
-                var assets = queryManager.queryAssetsWithMatchingContractDefinitions(connection, DEFINITIONS_TABLE, QuerySpec.max())) {
-            var result = assets.toList();
+    @Test
+    void queryAssetWithMatchingDefinitionIds_verifyOnlyDefinitionsWithAuthorizedAccessPolicyMatched() {
+        assertThat(assetIndex.create(createAsset(ASSET_ID, PARTICIPANT_CONTEXT_ID, Map.of(), Map.of()))).isSucceeded();
+        assertThat(contractDefinitionStore.save(createContractDefinition("authorized-1", PARTICIPANT_CONTEXT_ID,
+                ACCESS_POLICY_ID, List.of()))).isSucceeded();
+        assertThat(contractDefinitionStore.save(createContractDefinition("authorized-2", PARTICIPANT_CONTEXT_ID,
+                ACCESS_POLICY_ID, List.of()))).isSucceeded();
+        assertThat(contractDefinitionStore.save(createContractDefinition("other-authorized", PARTICIPANT_CONTEXT_ID,
+                OTHER_ACCESS_POLICY_ID, List.of()))).isSucceeded();
+        assertThat(contractDefinitionStore.save(createContractDefinition("not-authorized", PARTICIPANT_CONTEXT_ID,
+                "notAuthorizedAccessPolicyId", List.of()))).isSucceeded();
 
-            if (expectedDefinitionIds.isEmpty()) {
-                assertThat(result).as("bulk query").isEmpty();
-            } else {
-                assertThat(result).as("bulk query").singleElement().satisfies(authorizedAsset -> {
-                    assertThat(authorizedAsset.asset().getId()).isEqualTo(assetId);
-                    assertThat(authorizedAsset.contractDefinitions()).containsExactlyInAnyOrderElementsOf(matchingDefinitions(expectedDefinitionIds));
-                });
-            }
-        }
+        var authorizedPolicies = List.of(ACCESS_POLICY_ID, OTHER_ACCESS_POLICY_ID);
+        var expectedDefinitionIds = List.of("authorized-1", "authorized-2", "other-authorized");
+        verifySingleAssetQuery(ASSET_ID, authorizedPolicies, expectedDefinitionIds);
+        verifyBulkQuery(ASSET_ID, authorizedPolicies, expectedDefinitionIds);
+
+        verifySingleAssetQuery(ASSET_ID, List.of(OTHER_ACCESS_POLICY_ID), List.of("other-authorized"));
+        verifyBulkQuery(ASSET_ID, List.of(OTHER_ACCESS_POLICY_ID), List.of("other-authorized"));
+
+        verifySingleAssetQuery(ASSET_ID, List.of(), List.of());
+        verifyBulkQuery(ASSET_ID, List.of(), List.of());
+    }
+
+    @Test
+    void queryAssetWithMatchingDefinitionIds_verifyDefinitionsOfOtherParticipantContextIgnored() {
+        assertThat(assetIndex.create(createAsset(ASSET_ID, PARTICIPANT_CONTEXT_ID, Map.of(), Map.of()))).isSucceeded();
+        assertThat(assetIndex.create(createAsset("other-asset", OTHER_PARTICIPANT_CONTEXT_ID, Map.of(), Map.of()))).isSucceeded();
+        assertThat(contractDefinitionStore.save(createContractDefinition(DEFINITION_ID, PARTICIPANT_CONTEXT_ID,
+                ACCESS_POLICY_ID, List.of()))).isSucceeded();
+        // references the same access policy, but belongs to another participant context
+        assertThat(contractDefinitionStore.save(createContractDefinition("other-participant-definition", OTHER_PARTICIPANT_CONTEXT_ID,
+                ACCESS_POLICY_ID, List.of()))).isSucceeded();
+
+        verifySingleAssetQuery(ASSET_ID, List.of(ACCESS_POLICY_ID), List.of(DEFINITION_ID));
+        verifySingleAssetQuery("other-asset", List.of(ACCESS_POLICY_ID), List.of());
+        verifyBulkQuery(ASSET_ID, List.of(ACCESS_POLICY_ID), List.of(DEFINITION_ID));
+    }
+
+    private void verifyBulkQuery(String assetId, List<String> expectedDefinitionIds) {
+        verifyBulkQuery(assetId, List.of(ACCESS_POLICY_ID), expectedDefinitionIds);
     }
 
     /**
-     * Verifies the single asset query (dataset request) returns the asset with exactly the expected contract definition IDs, or nothing
-     * if no definitions are expected.
+     * Verifies the bulk query (catalog request) for the participant context and the given authorized access policies returns
+     * only the asset with exactly the expected contract definitions, or nothing if no definitions are expected.
      */
-    private void verifySingleAssetQuery(String assetId, List<String> expectedDefinitionIds) throws SQLException {
-        try (var connection = EXTENSION.getConnection()) {
-            var result = queryManager.findAssetWithMatchingContractDefinitions(connection, DEFINITIONS_TABLE, assetId);
+    private void verifyBulkQuery(String assetId, List<String> accessPolicyIds, List<String> expectedDefinitionIds) {
+        var result = queryManager.queryAssetsWithMatchingContractDefinitions(PARTICIPANT_CONTEXT_ID, accessPolicyIds, QuerySpec.max());
 
-            if (expectedDefinitionIds.isEmpty()) {
-                assertThat(result).as("single asset query").isEmpty();
-            } else {
-                assertThat(result).as("single asset query").hasValueSatisfying(authorizedAsset -> {
-                    assertThat(authorizedAsset.asset().getId()).isEqualTo(assetId);
-                    assertThat(authorizedAsset.contractDefinitions()).containsExactlyInAnyOrderElementsOf(matchingDefinitions(expectedDefinitionIds));
-                });
-            }
+        if (expectedDefinitionIds.isEmpty()) {
+            assertThat(result).as("bulk query").isEmpty();
+        } else {
+            assertThat(result).as("bulk query").singleElement().satisfies(authorizedAsset -> {
+                assertThat(authorizedAsset.asset().getId()).isEqualTo(assetId);
+                assertThat(authorizedAsset.contractDefinitions()).containsExactlyInAnyOrderElementsOf(matchingDefinitions(expectedDefinitionIds));
+            });
+        }
+    }
+
+    private void verifySingleAssetQuery(String assetId, List<String> expectedDefinitionIds) {
+        verifySingleAssetQuery(assetId, List.of(ACCESS_POLICY_ID), expectedDefinitionIds);
+    }
+
+    /**
+     * Verifies the single asset query (dataset request) for the participant context and the given authorized access policies
+     * returns the asset with exactly the expected contract definitions, or nothing if no definitions are expected.
+     */
+    private void verifySingleAssetQuery(String assetId, List<String> accessPolicyIds, List<String> expectedDefinitionIds) {
+        var result = queryManager.findAssetWithMatchingContractDefinitions(PARTICIPANT_CONTEXT_ID, accessPolicyIds, assetId);
+
+        if (expectedDefinitionIds.isEmpty()) {
+            assertThat(result).as("single asset query").isEmpty();
+        } else {
+            assertThat(result).as("single asset query").hasValueSatisfying(authorizedAsset -> {
+                assertThat(authorizedAsset.asset().getId()).isEqualTo(assetId);
+                assertThat(authorizedAsset.contractDefinitions()).containsExactlyInAnyOrderElementsOf(matchingDefinitions(expectedDefinitionIds));
+            });
         }
     }
 
@@ -249,7 +290,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
     }
 
     private ContractDefinition createContractDefinition(String id, String participantContextId, List<Criterion> assetsSelector) {
-        return createContractDefinition(id, participantContextId, "accessPolicyId", assetsSelector);
+        return createContractDefinition(id, participantContextId, ACCESS_POLICY_ID, assetsSelector);
     }
 
     private ContractDefinition createContractDefinition(String id, String participantContextId, String accessPolicyId,

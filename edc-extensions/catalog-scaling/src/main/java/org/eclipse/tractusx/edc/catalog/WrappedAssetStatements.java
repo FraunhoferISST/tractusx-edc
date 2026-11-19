@@ -45,24 +45,26 @@ public class WrappedAssetStatements extends PostgresDialectStatements {
      */
     @Override
     public String getSelectAssetTemplate() {
-        return "SELECT * FROM edc_find_matching_assets_page(?) AS a";
+        return "SELECT * FROM edc_find_matching_assets_page(?, ?::varchar[]) AS a";
     }
 
     /**
-     * Prepends the temporary contract definition table name to the parameters of a statement created
-     * from {@link #getSelectAssetTemplate()}.
+     * Prepends the participant context ID and the authorized access policy IDs to the parameters of
+     * a statement created from {@link #getSelectAssetTemplate()}.
      * <p>
-     * The placeholder for the table name sits in the select clause, which
+     * The placeholders for these parameters sit in the select clause, which
      * {@code SqlQueryStatement#getQueryAsString()} always renders before the where clause and the
-     * trailing limit/offset. The table name must therefore be the first parameter.
+     * trailing limit/offset. They must therefore be the first parameters.
      *
-     * @param tempTableName the name of the temporary contract definition table.
+     * @param participantContextId the participant context ID of the contract definitions.
+     * @param accessPolicyIds the authorized access policy IDs.
      * @param parameters the parameters of the generated query, in order.
-     * @return the parameters prefixed with the table name.
+     * @return the parameters prefixed with the participant context ID and access policy IDs.
      */
-    public static Object[] withTempTableName(String tempTableName, Object... parameters) {
+    public static Object[] withAuthorizationParameters(String participantContextId, String[] accessPolicyIds, Object... parameters) {
         List<Object> result = new ArrayList<>();
-        result.add(tempTableName);
+        result.add(participantContextId);
+        result.add(accessPolicyIds);
         result.addAll(Arrays.asList(parameters));
         return result.toArray();
     }

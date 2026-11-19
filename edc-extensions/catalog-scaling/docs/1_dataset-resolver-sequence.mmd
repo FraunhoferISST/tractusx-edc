@@ -26,7 +26,7 @@
 sequenceDiagram
     participant E as Extension
     participant D as ScalingDatasetResolver
-    participant C as ScalingContractDefinitionResolver
+    participant C as AuthorizedAccessPolicyResolver
     participant DB as Database
 
     Note over E,DB: Start-up
@@ -52,12 +52,8 @@ sequenceDiagram
     alt No authorized access policies
         D->>D: Return empty stream
     else Authorized access policies found
-        D->>DB: open connection
-        D->>DB: Create temp table for authorized contract definitions
-        D->>DB: Copy definitions by context and authorized policy IDs to temp table
-        D->>DB: ANALYZE temp table
         D->>D: Build asset query (filters, limit & offset from original query, ordered by asset ID)
-        D->>DB: query assets matching query & with at least 1 match in temp table (function edc_find_matching_assets_page)
+        D->>DB: query assets matching query & at least 1 contract definition of the context with an authorized access policy (function edc_find_matching_assets_page(contextId, accessPolicyIds))
         DB-->>D: Matching assets incl. IDs and contract policy IDs of all matching, authorized contract definitions
 
         loop For each asset
@@ -72,5 +68,5 @@ sequenceDiagram
             end
         end
 
-        D->>DB: Commit or rollback transaction => drop temp table
+        D->>DB: Commit or rollback transaction
     end

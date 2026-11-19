@@ -36,19 +36,13 @@ import org.eclipse.edc.policy.model.PolicyType;
 import org.eclipse.edc.spi.EdcException;
 import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.spi.query.SortOrder;
-import org.eclipse.edc.transaction.spi.TransactionContext;
 import org.jetbrains.annotations.NotNull;
 
-import java.sql.Connection;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
-import javax.sql.DataSource;
 
 import static org.eclipse.edc.participantcontext.spi.types.ParticipantResource.filterByParticipantContextId;
 import static org.eclipse.edc.spi.constants.CoreConstants.EDC_NAMESPACE;
@@ -67,27 +61,22 @@ public class ScalingDatasetResolver implements DatasetResolver {
     private final CatalogRequestQueryManager queryManager;
     private final PolicyDefinitionStore policyDefinitionStore;
     private final DistributionResolver distributionResolver;
-    private final Supplier<DataSource> dataSourceSupplier;
-    private final TransactionContext transactionContext;
 
     public ScalingDatasetResolver(AuthorizedAccessPolicyResolver contractDefinitionResolver,
                                   CatalogRequestQueryManager queryManager,
                                   PolicyDefinitionStore policyDefinitionStore,
-                                  DistributionResolver distributionResolver, Supplier<DataSource> dataSourceSupplier,
-                                  TransactionContext transactionContext) {
+                                  DistributionResolver distributionResolver) {
         this.contractDefinitionResolver = contractDefinitionResolver;
         this.queryManager = queryManager;
         this.policyDefinitionStore = policyDefinitionStore;
         this.distributionResolver = distributionResolver;
-        this.dataSourceSupplier = dataSourceSupplier;
-        this.transactionContext = transactionContext;
     }
 
     /**
      * Generates datasets for the requesting participant matching the given query. First resolves
-     * all access policies for which the requesting participant is authorized and copies their
-     * contract definitions to a temporary Postgres table. Then queries for assets both matching the given query
-     * and matching at least one contract definition in the temporary table. For all returned
+     * all access policies for which the requesting participant is authorized. Then queries for assets both
+     * matching the given query and matching at least one contract definition of the participant context with
+     * one of these access policies. For all returned
      * assets, builds a dataset using policies from all authorized contract definitions matching the
      * asset.
      *
@@ -99,44 +88,39 @@ public class ScalingDatasetResolver implements DatasetResolver {
      */
     @Override
     public @NotNull Stream<Dataset> query(ParticipantContext participantContext, ParticipantAgent agent, QuerySpec querySpec, String protocol) {
-        return transactionContext.execute(() -> {
-            var accessPolicyIds = contractDefinitionResolver.resolveFor(participantContext, agent);
-            if (accessPolicyIds.isEmpty()) {
-                return Stream.empty();
-            }
+        var accessPolicyIds = contractDefinitionResolver.resolveFor(participantContext, agent);
+        if (accessPolicyIds.isEmpty()) {
+            return Stream.empty();
+        }
 
-            try {
-                var connection = dataSourceSupplier.get().getConnection();
-                var tempTableName = prepareTemporaryContractDefinitionTable(connection, participantContext, accessPolicyIds);
+        try {
+            var assetsQuery = QuerySpec.Builder.newInstance()
+                    .offset(querySpec.getOffset())
+                    .limit(querySpec.getLimit())
+                    .filter(querySpec.getFilterExpression())
+                    .filter(filterByParticipantContextId(participantContext.getParticipantContextId()))
+                    // the asset ID is unique, so sorting by it yields a total order and stable pages
+                    .sortField("id")
+                    .sortOrder(SortOrder.ASC)
+                    .build();
 
-                var assetsQuery = QuerySpec.Builder.newInstance()
-                        .offset(querySpec.getOffset())
-                        .limit(querySpec.getLimit())
-                        .filter(querySpec.getFilterExpression())
-                        .filter(filterByParticipantContextId(participantContext.getParticipantContextId()))
-                        // the asset ID is unique, so sorting by it yields a total order and stable pages
-                        .sortField("id")
-                        .sortOrder(SortOrder.ASC)
-                        .build();
+            var contractPolicies = new HashMap<String, Policy>();
+            var datasets = queryManager.queryAssetsWithMatchingContractDefinitions(
+                            participantContext.getParticipantContextId(), accessPolicyIds, assetsQuery).stream()
+                    .map(asset -> toDataset(asset, protocol, contractPolicies))
+                    .toList();
 
-                var contractPolicies = new HashMap<String, Policy>();
-                List<Dataset> datasets;
-                try (var assets = queryManager.queryAssetsWithMatchingContractDefinitions(connection, tempTableName, assetsQuery)) {
-                    datasets = assets.map(asset -> toDataset(asset, protocol, contractPolicies)).toList();
-                }
-
-                return datasets.stream();
-            } catch (Exception e) {
-                throw new EdcException("Error querying datasets.", e);
-            }
-        });
+            return datasets.stream();
+        } catch (Exception e) {
+            throw new EdcException("Error querying datasets.", e);
+        }
     }
 
     /**
-     * Generates a dataset for a specific requested asset. First resolves authorized access policies
-     * and copies their contract definitions to a temporary Postgres
-     * table. Then queries for the asset by id including the IDs and contract policy IDs of all matching
-     * contract definitions in the temporary table. If the asset is found and matches at least one authorized contract
+     * Generates a dataset for a specific requested asset. First resolves authorized access policies.
+     * Then queries for the asset by id including the IDs and contract policy IDs of all matching
+     * contract definitions of the participant context with one of these access policies. If the asset
+     * is found and matches at least one authorized contract
      * definition, builds a dataset using policies from all authorized contract definitions matching
      * the asset.
      *
@@ -148,33 +132,20 @@ public class ScalingDatasetResolver implements DatasetResolver {
      */
     @Override
     public Dataset getById(ParticipantContext participantContext, ParticipantAgent agent, String id, String protocol) {
-        return transactionContext.execute(() -> {
-            var accessPolicyIds = contractDefinitionResolver.resolveFor(participantContext, agent);
-            if (accessPolicyIds.isEmpty()) {
-                return null;
-            }
+        var accessPolicyIds = contractDefinitionResolver.resolveFor(participantContext, agent);
+        if (accessPolicyIds.isEmpty()) {
+            return null;
+        }
 
-            try {
-                var connection = dataSourceSupplier.get().getConnection();
-                var tempTableName = prepareTemporaryContractDefinitionTable(connection, participantContext, accessPolicyIds);
-
-                return queryManager.findAssetWithMatchingContractDefinitions(connection, tempTableName, id)
-                        .map(asset -> toDataset(asset, protocol, new HashMap<>()))
-                        .filter(Dataset::hasOffers)
-                        .orElse(null);
-            } catch (Exception e) {
-                throw new EdcException("Error getting dataset by id.", e);
-            }
-        });
-    }
-
-    private String prepareTemporaryContractDefinitionTable(Connection connection, ParticipantContext participantContext,
-                                                           Set<String> accessPolicyIds) {
-        var tempTableName = queryManager.createTemporaryContractDefinitionTable(connection);
-        queryManager.copyAuthorizedContractDefinitions(connection, participantContext.getParticipantContextId(),
-                tempTableName, accessPolicyIds);
-        queryManager.runAnalyze(connection, tempTableName);
-        return tempTableName;
+        try {
+            return queryManager.findAssetWithMatchingContractDefinitions(participantContext.getParticipantContextId(),
+                            accessPolicyIds, id)
+                    .map(asset -> toDataset(asset, protocol, new HashMap<>()))
+                    .filter(Dataset::hasOffers)
+                    .orElse(null);
+        } catch (Exception e) {
+            throw new EdcException("Error getting dataset by id.", e);
+        }
     }
 
     private Dataset.Builder<?, ?> buildDataset(Asset asset) {

@@ -24,9 +24,9 @@
 %% =====================================================================================================================
 
 flowchart TD
-    PAGE["<b>edc_find_matching_assets_page</b>(p_definitions_table)<br/>Bulk entry point called by EDC (inlinable SQL function).<br/>Joins the matching asset IDs with edc_asset, so filters, ordering<br/>and paging of the calling query apply to the join directly."]
-    FMA["<b>edc_find_matching_asset_ids</b>(p_definitions_table)<br/>Returns the IDs of all assets selected by at least one contract<br/>definition of the given table, incl. the matching definition IDs<br/>and their contract policy IDs.<br/>Drives the join from the definitions table."]
-    ONE["<b>edc_find_authorized_asset</b>(p_definitions_table, p_asset_id)<br/>Single-asset entry point called by EDC. Resolves the asset via its<br/>primary key first, then evaluates the definitions' selectors."]
+    PAGE["<b>edc_find_matching_assets_page</b>(p_participant_context_id, p_access_policy_ids)<br/>Bulk entry point called by EDC (inlinable SQL function).<br/>Joins the matching asset IDs with edc_asset, so filters, ordering<br/>and paging of the calling query apply to the join directly."]
+    FMA["<b>edc_find_matching_asset_ids</b>(p_participant_context_id, p_access_policy_ids)<br/>Returns the IDs of all assets selected by at least one contract<br/>definition of the participant context with one of the given access<br/>policies, incl. the matching definition IDs and their contract policy IDs.<br/>Drives the join from these contract definitions."]
+    ONE["<b>edc_find_authorized_asset</b>(p_participant_context_id, p_access_policy_ids, p_asset_id)<br/>Single-asset entry point called by EDC. Resolves the asset via its<br/>primary key first, then evaluates the definitions' selectors."]
 
     PAGE --> FMA
     ONE -->|"per contract definition"| CDCOLS
@@ -53,7 +53,7 @@ flowchart TD
     FMA -->|"per contract definition"| CDCOLS
 
     subgraph stored["Split selectors (computed on write)"]
-        CDCOLS[("edc_contract_definitions.selector_*<br/>eq_filter, ambiguous_filter, eq_criteria, other_criteria<br/>(copied into the temp table per request)")]
+        CDCOLS[("edc_contract_definitions.selector_*<br/>eq_filter, ambiguous_filter, eq_criteria, other_criteria")]
         TRG["<b>edc_contract_definitions_split_selector</b>()<br/>BEFORE INSERT OR UPDATE trigger, recomputes the<br/>selector_* columns from assets_selector.<br/>Stale rows are refreshed when the script runs."]
     end
 

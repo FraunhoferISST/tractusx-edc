@@ -645,9 +645,7 @@ COMMENT ON FUNCTION edc_split_selector(jsonb) IS
 --    * changing the function would not recompute the stored values
 -- Instead, the stored values are refreshed below whenever this script changes the result of edc_split_selector.
 --
--- Columns that can never be NULL are declared NOT NULL. "CREATE TEMPORARY TABLE ... (LIKE edc_contract_definitions)"
--- copies these constraints (but not the trigger), so a temporary table that is filled without the split selectors
--- fails loudly instead of silently matching no assets.
+-- Columns that can never be NULL are declared NOT NULL.
 -- ---------------------------------------------------------------------------------------------------------------------
 ALTER TABLE edc_contract_definitions
     ADD COLUMN IF NOT EXISTS selector_eq_filter        jsonpath,
@@ -727,11 +725,15 @@ COMMENT ON FUNCTION edc_selector_matches(jsonb, json, jsonb) IS
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Bulk case, step 1: find IDs of matching assets
 -- ---------------------------------------------------------------------------------------------------------------------
--- Drives the join from the contract definitions table and probes the GIN index on edc_asset.effective_properties
--- for every definition. Returns only asset IDs and the IDs and contract policy IDs of the matching definitions, so the
--- result materialized by PL/pgSQL stays small. Both arrays are ordered by definition ID, so matching_policy_ids[i] is
--- the contract policy of matching_definition_ids[i]. Dynamic SQL (and therefore PL/pgSQL) is required, as the
--- definitions table is passed by name.
+-- Drives the join from the authorized contract definitions, i.e. those of the participant context whose access policy
+-- is one of the given authorized access policies, and probes the GIN index on edc_asset.effective_properties for every
+-- definition. Returns only asset IDs and the IDs and contract policy IDs of the matching definitions, so the result
+-- materialized by PL/pgSQL stays small. Both arrays are ordered by definition ID, so matching_policy_ids[i] is the
+-- contract policy of matching_definition_ids[i].
+--
+-- The query is run with EXECUTE, so it is planned for the actual parameter values on every call. A static query would
+-- switch to a generic plan after a few calls, which can neither estimate the number of authorized definitions nor
+-- the participant's share of the assets.
 --
 -- The asset lookup is a LATERAL subquery with OFFSET 0, which forces one GIN index probe per definition. Without it,
 -- the planner flattens the lookup into a regular join on participant_context_id: as it can neither estimate the
@@ -739,9 +741,10 @@ COMMENT ON FUNCTION edc_selector_matches(jsonb, json, jsonb) IS
 -- asset x definition pair.
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Parameters:
---    p_definitions_table -> table from which to read contract definitions
+--    p_participant_context_id -> participant context of the contract definitions
+--    p_access_policy_ids -> IDs of the access policies the requesting participant is authorized for
 -- ---------------------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION edc_find_matching_asset_ids(p_definitions_table text)
+CREATE OR REPLACE FUNCTION edc_find_matching_asset_ids(p_participant_context_id text, p_access_policy_ids varchar[])
 RETURNS TABLE (
     asset_id                varchar,
     matching_definition_ids varchar[],
@@ -749,11 +752,11 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql STABLE AS $$
 BEGIN
-    RETURN QUERY EXECUTE format($q$
+    RETURN QUERY EXECUTE $q$
         SELECT a.asset_id,
                array_agg(cd.contract_definition_id ORDER BY cd.contract_definition_id)::varchar[],
                array_agg(cd.contract_policy_id ORDER BY cd.contract_definition_id)::varchar[]
-        FROM %s cd
+        FROM edc_contract_definitions cd
         CROSS JOIN LATERAL (
             -- fast-path: probes the GIN index once per contract definition
             SELECT x.asset_id,
@@ -765,19 +768,23 @@ BEGIN
             -- OFFSET 0 prevents the planner from flattening this subquery into a regular join
             OFFSET 0
         ) a
-        -- "=" criteria are only evaluated exactly for assets on which eq_filter may disagree with EDC
-        WHERE (cd.selector_ambiguous_filter IS NULL
+        WHERE cd.participant_context_id = $1
+          AND cd.access_policy_id = ANY($2)
+          -- "=" criteria are only evaluated exactly for assets on which eq_filter may disagree with EDC
+          AND (cd.selector_ambiguous_filter IS NULL
                OR NOT (a.props @? cd.selector_ambiguous_filter)
                OR edc_selector_matches(a.props, a.private_props, cd.selector_eq_criteria))
           AND edc_selector_matches(a.props, a.private_props, cd.selector_other_criteria) -- evaluates the remaining criteria exactly
         GROUP BY a.asset_id
-        $q$, quote_ident(p_definitions_table)); -- renders the table name as a safe SQL identifier
+        $q$
+    USING p_participant_context_id, p_access_policy_ids;
 END;
 $$;
 
-COMMENT ON FUNCTION edc_find_matching_asset_ids(text) IS
-    'Returns the IDs of all assets selected by at least one contract definition of the specified '
-    'table, including the IDs and contract policy IDs of the matching definitions for each asset.';
+COMMENT ON FUNCTION edc_find_matching_asset_ids(text, varchar[]) IS
+    'Returns the IDs of all assets selected by at least one contract definition of the participant context '
+    'with one of the given access policies, including the IDs and contract policy IDs of the matching '
+    'definitions for each asset.';
 
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -799,9 +806,10 @@ COMMENT ON FUNCTION edc_find_matching_asset_ids(text) IS
 -- order (e.g. ORDER BY asset_id) to page deterministically.
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Parameters:
---    p_definitions_table -> table from which to read contract definitions
+--    p_participant_context_id -> participant context of the contract definitions
+--    p_access_policy_ids -> IDs of the access policies the requesting participant is authorized for
 -- ---------------------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION edc_find_matching_assets_page(p_definitions_table text)
+CREATE OR REPLACE FUNCTION edc_find_matching_assets_page(p_participant_context_id text, p_access_policy_ids varchar[])
 RETURNS TABLE (
     asset_id                varchar,
     created_at              bigint,
@@ -823,12 +831,13 @@ LANGUAGE sql STABLE AS $$
            x.dataplane_metadata,
            m.matching_definition_ids,
            m.matching_policy_ids
-    FROM edc_find_matching_asset_ids(p_definitions_table) m
+    FROM edc_find_matching_asset_ids(p_participant_context_id, p_access_policy_ids) m
     JOIN edc_asset x ON x.asset_id = m.asset_id;
 $$;
 
-COMMENT ON FUNCTION edc_find_matching_assets_page(text) IS
-    'Returns all assets selected by at least one contract definition of the specified table, '
+COMMENT ON FUNCTION edc_find_matching_assets_page(text, varchar[]) IS
+    'Returns all assets selected by at least one contract definition of the participant context with one '
+    'of the given access policies, '
     'including the IDs and contract policy IDs of the matching definitions. Inlinable SQL function: filters, ordering and paging '
     'of the calling query are applied to the join directly.';
 
@@ -840,10 +849,12 @@ COMMENT ON FUNCTION edc_find_matching_assets_page(text) IS
 -- definitions. Returns at most one row, so materialization by PL/pgSQL is irrelevant here.
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Parameters:
---    p_definitions_table -> table from which to read contract definitions
+--    p_participant_context_id -> participant context of the asset and the contract definitions
+--    p_access_policy_ids -> IDs of the access policies the requesting participant is authorized for
 --    p_asset_id -> ID of the asset to resolve
 -- ---------------------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION edc_find_authorized_asset(p_definitions_table text, p_asset_id text)
+CREATE OR REPLACE FUNCTION edc_find_authorized_asset(p_participant_context_id text, p_access_policy_ids varchar[],
+                                                     p_asset_id text)
 RETURNS TABLE (
     asset_id                varchar,
     created_at              bigint,
@@ -857,12 +868,13 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql STABLE AS $$
 BEGIN
-    RETURN QUERY EXECUTE format($q$
+    RETURN QUERY EXECUTE $q$
         WITH a AS MATERIALIZED (
             SELECT x.*,
                    x.effective_properties AS props
             FROM edc_asset x
-            WHERE x.asset_id = $1
+            WHERE x.asset_id = $3
+              AND x.participant_context_id = $1
         ),
         cd AS NOT MATERIALIZED (
             -- reads the split selectors stored on the contract definitions (see edc_contract_definitions_split_selector)
@@ -873,7 +885,9 @@ BEGIN
                    t.selector_ambiguous_filter AS ambiguous_filter,
                    t.selector_eq_criteria      AS eq_criteria,
                    t.selector_other_criteria   AS other_criteria
-            FROM %s t
+            FROM edc_contract_definitions t
+            WHERE t.participant_context_id = $1
+              AND t.access_policy_id = ANY($2)
         ),
         matched AS (
             SELECT array_agg(cd.contract_definition_id ORDER BY cd.contract_definition_id)::varchar[] AS matching_definition_ids,
@@ -899,14 +913,15 @@ BEGIN
         FROM a
         CROSS JOIN matched m
         WHERE m.matching_definition_ids IS NOT NULL
-        $q$, quote_ident(p_definitions_table)) -- renders the table name as a safe SQL identifier
-    USING p_asset_id;
+        $q$
+    USING p_participant_context_id, p_access_policy_ids, p_asset_id;
 END;
 $$;
 
-COMMENT ON FUNCTION edc_find_authorized_asset(text, text) IS
-    'Returns the asset with the given ID including the IDs and contract policy IDs of all contract '
-    'definitions of the specified table that select it, or no row if the asset does not exist or is not selected.';
+COMMENT ON FUNCTION edc_find_authorized_asset(text, varchar[], text) IS
+    'Returns the asset with the given ID and participant context including the IDs and contract policy IDs of '
+    'all contract definitions of the participant context with one of the given access policies that select it, '
+    'or no row if the asset does not exist or is not selected.';
 
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -920,3 +935,8 @@ CREATE INDEX IF NOT EXISTS idx_edc_asset_effective_props_gin
 
 CREATE INDEX IF NOT EXISTS idx_edc_asset_pcid
     ON edc_asset (participant_context_id);
+
+-- Supports looking up the authorized contract definitions of a participant context by their access policy IDs, as done
+-- by edc_find_matching_asset_ids and edc_find_authorized_asset, and finding the referenced access policies.
+CREATE INDEX IF NOT EXISTS idx_edc_contract_definitions_pcid_access_policy
+    ON edc_contract_definitions (participant_context_id, access_policy_id);
