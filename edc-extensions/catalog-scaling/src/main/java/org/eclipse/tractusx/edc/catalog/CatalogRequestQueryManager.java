@@ -19,9 +19,17 @@
 
 package org.eclipse.tractusx.edc.catalog;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.edc.connector.controlplane.asset.spi.domain.Asset;
 import org.eclipse.edc.connector.controlplane.asset.spi.domain.DataplaneMetadata;
+import org.eclipse.edc.connector.controlplane.policy.spi.PolicyDefinition;
+import org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.SqlPolicyStoreStatements;
+import org.eclipse.edc.policy.model.Duty;
+import org.eclipse.edc.policy.model.Permission;
+import org.eclipse.edc.policy.model.Policy;
+import org.eclipse.edc.policy.model.PolicyType;
+import org.eclipse.edc.policy.model.Prohibition;
 import org.eclipse.edc.spi.persistence.EdcPersistenceException;
 import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.spi.types.domain.DataAddress;
@@ -29,15 +37,18 @@ import org.eclipse.edc.sql.QueryExecutor;
 import org.eclipse.edc.sql.store.AbstractSqlStore;
 import org.eclipse.edc.transaction.datasource.spi.DataSourceRegistry;
 import org.eclipse.edc.transaction.spi.TransactionContext;
+import org.eclipse.tractusx.edc.catalog.AuthorizedAsset.MatchingContractDefinition;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
@@ -47,16 +58,51 @@ import static java.lang.String.format;
  */
 public class CatalogRequestQueryManager extends AbstractSqlStore {
 
+    private static final TypeReference<List<Permission>> PERMISSIONS_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<Prohibition>> PROHIBITIONS_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<Duty>> DUTIES_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<String>> PROFILES_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
+    };
+
     private final WrappedAssetStatements assetStatements;
+    private final SqlPolicyStoreStatements policyStatements;
     private final int copyBatchSize;
 
     public CatalogRequestQueryManager(DataSourceRegistry dataSourceRegistry, String dataSourceName,
                                       TransactionContext transactionContext, ObjectMapper objectMapper,
                                       QueryExecutor queryExecutor, WrappedAssetStatements assetStatements,
-                                      int copyBatchSize) {
+                                      SqlPolicyStoreStatements policyStatements, int copyBatchSize) {
         super(dataSourceRegistry, dataSourceName, transactionContext, objectMapper, queryExecutor);
         this.assetStatements = assetStatements;
+        this.policyStatements = policyStatements;
         this.copyBatchSize = copyBatchSize;
+    }
+
+    /**
+     * Finds all policies referenced as access policy by at least one contract definition of the
+     * given participant context. As upstream, the participant context is only applied to the
+     * contract definitions, not to the policies.
+     *
+     * @param participantContextId the participant context ID
+     * @return the referenced access policies, each returned once
+     */
+    public List<PolicyDefinition> queryAccessPolicies(String participantContextId) {
+        return transactionContext.execute(() -> {
+            var sql = """
+                    SELECT p.* FROM %s p
+                    WHERE p.%s IN (SELECT cd.access_policy_id FROM edc_contract_definitions cd WHERE cd.participant_context_id = ?)
+                    """.formatted(policyStatements.getPolicyTable(), policyStatements.getPolicyIdColumn());
+            try (var policies = queryExecutor.query(getConnection(), true, this::mapPolicyResultSet, sql, participantContextId)) {
+                return policies.toList();
+            } catch (SQLException e) {
+                throw new EdcPersistenceException(format("Failed to query access policies: %s", e.getMessage()), e);
+            }
+        });
     }
 
     /**
@@ -88,25 +134,23 @@ public class CatalogRequestQueryManager extends AbstractSqlStore {
     }
 
     /**
-     * Copies contract definitions to a temporary table by IDs.
+     * Copies contract definitions to a temporary table by access policy IDs.
      *
      * @param connection the database connection to use
      * @param participantContextId the participant context ID
      * @param tempTableName the name of the temporary table
-     * @param contractDefinitionIds the list of contract definition IDs to copy
+     * @param accessPolicyIds the authorized access policy IDs
      */
     public void copyAuthorizedContractDefinitions(Connection connection, String participantContextId,
-                                                  String tempTableName, List<String> contractDefinitionIds) {
+                                                  String tempTableName, Collection<String> accessPolicyIds) {
         transactionContext.execute(() -> {
             try {
                 var sql = copyToTempTableStatement(tempTableName);
+                var ids = accessPolicyIds.toArray(String[]::new);
 
-                for (var fromIndex = 0; fromIndex < contractDefinitionIds.size(); fromIndex += copyBatchSize) {
-                    var toIndex = Math.min(fromIndex + copyBatchSize, contractDefinitionIds.size());
-                    var sqlArray = connection.createArrayOf(
-                            "varchar",
-                            contractDefinitionIds.subList(fromIndex, toIndex).toArray(String[]::new)
-                    );
+                for (var fromIndex = 0; fromIndex < ids.length; fromIndex += copyBatchSize) {
+                    var toIndex = Math.min(fromIndex + copyBatchSize, ids.length);
+                    var sqlArray = connection.createArrayOf("varchar", Arrays.copyOfRange(ids, fromIndex, toIndex));
 
                     try {
                         queryExecutor.execute(connection, sql, participantContextId, sqlArray);
@@ -188,7 +232,7 @@ public class CatalogRequestQueryManager extends AbstractSqlStore {
                 SELECT contract_definition_id, created_at, access_policy_id, contract_policy_id, assets_selector, private_properties, participant_context_id,
                        selector_eq_filter, selector_ambiguous_filter, selector_eq_criteria, selector_other_criteria
                 FROM edc_contract_definitions
-                WHERE participant_context_id = ? AND contract_definition_id = ANY(?::varchar[])
+                WHERE participant_context_id = ? AND access_policy_id = ANY(?::varchar[])
                 """.formatted(tempTableName);
     }
 
@@ -208,8 +252,41 @@ public class CatalogRequestQueryManager extends AbstractSqlStore {
                 .dataplaneMetadata(fromJson(resultSet.getString(assetStatements.getDataplaneMetadataColumn()), DataplaneMetadata.class))
                 .build();
 
-        var contractDefinitionIds = mapArray(resultSet.getArray("matching_definition_ids"));
-        return new AuthorizedAsset(asset, contractDefinitionIds);
+        var definitionIds = mapArray(resultSet.getArray("matching_definition_ids"));
+        var policyIds = mapArray(resultSet.getArray("matching_policy_ids"));
+        if (definitionIds.size() != policyIds.size()) {
+            throw new EdcPersistenceException("Mismatching number of contract definition and contract policy IDs for asset %s"
+                    .formatted(asset.getId()));
+        }
+
+        var contractDefinitions = IntStream.range(0, definitionIds.size())
+                .mapToObj(i -> new MatchingContractDefinition(definitionIds.get(i), policyIds.get(i)))
+                .toList();
+        return new AuthorizedAsset(asset, contractDefinitions);
+    }
+
+    // mirrors SqlPolicyDefinitionStore#mapResultSet (EDC 0.17.0), which is private upstream
+    private PolicyDefinition mapPolicyResultSet(ResultSet resultSet) throws SQLException {
+        var policy = Policy.Builder.newInstance()
+                .permissions(fromJson(resultSet.getString(policyStatements.getPermissionsColumn()), PERMISSIONS_TYPE))
+                .prohibitions(fromJson(resultSet.getString(policyStatements.getProhibitionsColumn()), PROHIBITIONS_TYPE))
+                .duties(fromJson(resultSet.getString(policyStatements.getDutiesColumn()), DUTIES_TYPE))
+                .profiles(fromJson(resultSet.getString(policyStatements.getProfilesColumn()), PROFILES_TYPE))
+                .extensibleProperties(fromJson(resultSet.getString(policyStatements.getExtensiblePropertiesColumn()), MAP_TYPE))
+                .inheritsFrom(resultSet.getString(policyStatements.getInheritsFromColumn()))
+                .assigner(resultSet.getString(policyStatements.getAssignerColumn()))
+                .assignee(resultSet.getString(policyStatements.getAssigneeColumn()))
+                .target(resultSet.getString(policyStatements.getTargetColumn()))
+                .type(fromJson(resultSet.getString(policyStatements.getTypeColumn()), PolicyType.class))
+                .build();
+
+        return PolicyDefinition.Builder.newInstance()
+                .id(resultSet.getString(policyStatements.getPolicyIdColumn()))
+                .policy(policy)
+                .createdAt(resultSet.getLong(policyStatements.getCreatedAtColumn()))
+                .privateProperties(fromJson(resultSet.getString(policyStatements.getPrivatePropertiesColumn()), MAP_TYPE))
+                .participantContextId(resultSet.getString(policyStatements.getParticipantContextIdColumn()))
+                .build();
     }
 
     private List<String> mapArray(java.sql.Array sqlArray) throws SQLException {

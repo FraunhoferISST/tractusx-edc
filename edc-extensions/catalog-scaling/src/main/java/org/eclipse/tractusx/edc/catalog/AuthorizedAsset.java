@@ -24,9 +24,17 @@ import org.eclipse.edc.connector.controlplane.asset.spi.domain.Asset;
 import java.util.List;
 
 /**
- * An asset which a requesting counter-party is authorized to see, including IDs of all authorized
+ * An asset which a requesting counter-party is authorized to see, including all authorized
  * contract definitions matching the asset.
  */
-public record AuthorizedAsset(Asset asset, List<String> contractDefinitionIds) {
+public record AuthorizedAsset(Asset asset, List<MatchingContractDefinition> contractDefinitions) {
 
+    /**
+     * An authorized contract definition matching the asset, reduced to the fields needed to create an offer.
+     *
+     * @param id the contract definition ID, used for the offer ID
+     * @param contractPolicyId the ID of the contract policy offered for the asset
+     */
+    public record MatchingContractDefinition(String id, String contractPolicyId) {
+    }
 }

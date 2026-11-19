@@ -25,7 +25,7 @@
 
 flowchart TD
     PAGE["<b>edc_find_matching_assets_page</b>(p_definitions_table)<br/>Bulk entry point called by EDC (inlinable SQL function).<br/>Joins the matching asset IDs with edc_asset, so filters, ordering<br/>and paging of the calling query apply to the join directly."]
-    FMA["<b>edc_find_matching_asset_ids</b>(p_definitions_table)<br/>Returns the IDs of all assets selected by at least one contract<br/>definition of the given table, incl. the matching definition IDs.<br/>Drives the join from the definitions table."]
+    FMA["<b>edc_find_matching_asset_ids</b>(p_definitions_table)<br/>Returns the IDs of all assets selected by at least one contract<br/>definition of the given table, incl. the matching definition IDs<br/>and their contract policy IDs.<br/>Drives the join from the definitions table."]
     ONE["<b>edc_find_authorized_asset</b>(p_definitions_table, p_asset_id)<br/>Single-asset entry point called by EDC. Resolves the asset via its<br/>primary key first, then evaluates the definitions' selectors."]
 
     PAGE --> FMA

@@ -21,7 +21,6 @@ package org.eclipse.tractusx.edc.catalog;
 
 import org.eclipse.edc.connector.controlplane.catalog.spi.DatasetResolver;
 import org.eclipse.edc.connector.controlplane.catalog.spi.DistributionResolver;
-import org.eclipse.edc.connector.controlplane.contract.spi.offer.store.ContractDefinitionStore;
 import org.eclipse.edc.connector.controlplane.policy.spi.store.PolicyDefinitionStore;
 import org.eclipse.edc.policy.engine.spi.PolicyEngine;
 import org.eclipse.edc.runtime.metamodel.annotation.Extension;
@@ -52,22 +51,22 @@ public class CatalogScalingExtension implements ServiceExtension {
     private static final String SQL_SCRIPT_PATH = "/sql/script.sql";
     private static final int DEFAULT_CONTRACT_DEFINITION_COPY_BATCH_SIZE = 5000;
 
-    // same @Setting annotations as used by SQL Asset Index and Contract Definition Store extension respectively
+    // same @Setting annotations as used by SQL Asset Index, Contract Definition Store and Policy Store extension respectively
     @Setting(description = "The datasource to be used for storing assets.", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.asset.datasource")
     private String dataSourceName;
     @Setting(description = "The datasource to be used for storing contract definitions.", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.contractdefinition.datasource")
     private String contractDefinitionDataSourceName;
+    @Setting(description = "The datasource to be used for storing policy definitions.", defaultValue = DataSourceRegistry.DEFAULT_DATASOURCE, key = "edc.sql.store.policy.datasource")
+    private String policyDataSourceName;
 
     @Setting(key = "edc.sql.store.contractdefinition.copy.batch.size", defaultValue = "" + DEFAULT_CONTRACT_DEFINITION_COPY_BATCH_SIZE,
-            description = "The batch size to be used when copying authorized contract definitions to a temporary Postgres table.")
+            description = "The number of authorized access policy IDs per batch when copying contract definitions to a temporary Postgres table.")
     private int contractDefinitionCopyBatchSize;
 
     // must be injected here to ensure this extension is loaded after the upstream catalog extension, so that it can override upstream's DatasetResolver
     @Inject
     private DatasetResolver toOverride;
 
-    @Inject
-    private ContractDefinitionStore contractDefinitionStore;
     @Inject
     private PolicyDefinitionStore policyDefinitionStore;
     @Inject
@@ -90,16 +89,18 @@ public class CatalogScalingExtension implements ServiceExtension {
 
     @Override
     public void initialize(ServiceExtensionContext context) {
-        if (dataSourceName == null || !dataSourceName.equals(contractDefinitionDataSourceName)) {
-            context.getMonitor().warning(format("Different data sources configured for asset and contract definition: %s, %s. " +
-                    "Unable to load catalog scaling improvements, as these rely on assets and contract definitions residing in the same data source.",
-                    dataSourceName, contractDefinitionDataSourceName));
+        if (dataSourceName == null || !dataSourceName.equals(contractDefinitionDataSourceName) || !dataSourceName.equals(policyDataSourceName)) {
+            context.getMonitor().warning(format("Different data sources configured for asset, contract definition and policy: %s, %s, %s. " +
+                    "Unable to load catalog scaling improvements, as these rely on assets, contract definitions and policies residing in the same data source.",
+                    dataSourceName, contractDefinitionDataSourceName, policyDataSourceName));
             return;
         }
 
-        var contractDefinitionResolver = new ScalingContractDefinitionResolver(contractDefinitionStore, policyEngine, policyDefinitionStore);
         var queryManager = new CatalogRequestQueryManager(dataSourceRegistry, dataSourceName, transactionContext,
-                typeManager.getMapper(), queryExecutor, new WrappedAssetStatements(), contractDefinitionCopyBatchSize);
+                typeManager.getMapper(), queryExecutor, new WrappedAssetStatements(),
+                new org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.postgres.PostgresDialectStatements(),
+                contractDefinitionCopyBatchSize);
+        var contractDefinitionResolver = new AuthorizedAccessPolicyResolver(queryManager, policyEngine);
 
         context.registerService(DatasetResolver.class, new ScalingDatasetResolver(contractDefinitionResolver,
                 queryManager, policyDefinitionStore, distributionResolver,

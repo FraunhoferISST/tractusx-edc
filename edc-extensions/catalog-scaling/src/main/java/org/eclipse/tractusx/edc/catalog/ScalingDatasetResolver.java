@@ -27,7 +27,6 @@ import org.eclipse.edc.connector.controlplane.catalog.spi.Dataset;
 import org.eclipse.edc.connector.controlplane.catalog.spi.DatasetResolver;
 import org.eclipse.edc.connector.controlplane.catalog.spi.DistributionResolver;
 import org.eclipse.edc.connector.controlplane.contract.spi.ContractOfferId;
-import org.eclipse.edc.connector.controlplane.contract.spi.types.offer.ContractDefinition;
 import org.eclipse.edc.connector.controlplane.policy.spi.PolicyDefinition;
 import org.eclipse.edc.connector.controlplane.policy.spi.store.PolicyDefinitionStore;
 import org.eclipse.edc.participant.spi.ParticipantAgent;
@@ -45,8 +44,8 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
@@ -64,15 +63,16 @@ import static org.eclipse.edc.spi.constants.CoreConstants.EDC_NAMESPACE;
  */
 public class ScalingDatasetResolver implements DatasetResolver {
 
-    private final ScalingContractDefinitionResolver contractDefinitionResolver;
+    private final AuthorizedAccessPolicyResolver contractDefinitionResolver;
     private final CatalogRequestQueryManager queryManager;
     private final PolicyDefinitionStore policyDefinitionStore;
     private final DistributionResolver distributionResolver;
     private final Supplier<DataSource> dataSourceSupplier;
     private final TransactionContext transactionContext;
 
-    public ScalingDatasetResolver(ScalingContractDefinitionResolver contractDefinitionResolver,
-                                  CatalogRequestQueryManager queryManager, PolicyDefinitionStore policyDefinitionStore,
+    public ScalingDatasetResolver(AuthorizedAccessPolicyResolver contractDefinitionResolver,
+                                  CatalogRequestQueryManager queryManager,
+                                  PolicyDefinitionStore policyDefinitionStore,
                                   DistributionResolver distributionResolver, Supplier<DataSource> dataSourceSupplier,
                                   TransactionContext transactionContext) {
         this.contractDefinitionResolver = contractDefinitionResolver;
@@ -85,8 +85,8 @@ public class ScalingDatasetResolver implements DatasetResolver {
 
     /**
      * Generates datasets for the requesting participant matching the given query. First resolves
-     * all contract definitions for which the requesting participant is authorized and copied them
-     * to a temporary Postgres table. Then queries for assets both matching the given query
+     * all access policies for which the requesting participant is authorized and copies their
+     * contract definitions to a temporary Postgres table. Then queries for assets both matching the given query
      * and matching at least one contract definition in the temporary table. For all returned
      * assets, builds a dataset using policies from all authorized contract definitions matching the
      * asset.
@@ -100,14 +100,14 @@ public class ScalingDatasetResolver implements DatasetResolver {
     @Override
     public @NotNull Stream<Dataset> query(ParticipantContext participantContext, ParticipantAgent agent, QuerySpec querySpec, String protocol) {
         return transactionContext.execute(() -> {
-            var contractDefinitions = contractDefinitionResolver.resolveFor(participantContext, agent);
-            if (contractDefinitions.isEmpty()) {
+            var accessPolicyIds = contractDefinitionResolver.resolveFor(participantContext, agent);
+            if (accessPolicyIds.isEmpty()) {
                 return Stream.empty();
             }
 
             try {
                 var connection = dataSourceSupplier.get().getConnection();
-                var tempTableName = prepareTemporaryContractDefinitionTable(connection, participantContext, contractDefinitions);
+                var tempTableName = prepareTemporaryContractDefinitionTable(connection, participantContext, accessPolicyIds);
 
                 var assetsQuery = QuerySpec.Builder.newInstance()
                         .offset(querySpec.getOffset())
@@ -122,7 +122,7 @@ public class ScalingDatasetResolver implements DatasetResolver {
                 var contractPolicies = new HashMap<String, Policy>();
                 List<Dataset> datasets;
                 try (var assets = queryManager.queryAssetsWithMatchingContractDefinitions(connection, tempTableName, assetsQuery)) {
-                    datasets = assets.map(asset -> toDataset(asset, contractDefinitions, protocol, contractPolicies)).toList();
+                    datasets = assets.map(asset -> toDataset(asset, protocol, contractPolicies)).toList();
                 }
 
                 return datasets.stream();
@@ -133,10 +133,10 @@ public class ScalingDatasetResolver implements DatasetResolver {
     }
 
     /**
-     * Generates a dataset for a specific requested asset. First resolves all contract definitions
-     * for which the requesting participant is authorized and copied them to a temporary Postgres
-     * table. Then queries for the asset by id including IDs of all matching contract definitions
-     * in the temporary table. If the asset is found and matches at least one authorized contract
+     * Generates a dataset for a specific requested asset. First resolves authorized access policies
+     * and copies their contract definitions to a temporary Postgres
+     * table. Then queries for the asset by id including the IDs and contract policy IDs of all matching
+     * contract definitions in the temporary table. If the asset is found and matches at least one authorized contract
      * definition, builds a dataset using policies from all authorized contract definitions matching
      * the asset.
      *
@@ -149,17 +149,17 @@ public class ScalingDatasetResolver implements DatasetResolver {
     @Override
     public Dataset getById(ParticipantContext participantContext, ParticipantAgent agent, String id, String protocol) {
         return transactionContext.execute(() -> {
-            var contractDefinitions = contractDefinitionResolver.resolveFor(participantContext, agent);
-            if (contractDefinitions.isEmpty()) {
+            var accessPolicyIds = contractDefinitionResolver.resolveFor(participantContext, agent);
+            if (accessPolicyIds.isEmpty()) {
                 return null;
             }
 
             try {
                 var connection = dataSourceSupplier.get().getConnection();
-                var tempTableName = prepareTemporaryContractDefinitionTable(connection, participantContext, contractDefinitions);
+                var tempTableName = prepareTemporaryContractDefinitionTable(connection, participantContext, accessPolicyIds);
 
                 return queryManager.findAssetWithMatchingContractDefinitions(connection, tempTableName, id)
-                        .map(asset -> toDataset(asset, contractDefinitions, protocol, new HashMap<>()))
+                        .map(asset -> toDataset(asset, protocol, new HashMap<>()))
                         .filter(Dataset::hasOffers)
                         .orElse(null);
             } catch (Exception e) {
@@ -169,10 +169,10 @@ public class ScalingDatasetResolver implements DatasetResolver {
     }
 
     private String prepareTemporaryContractDefinitionTable(Connection connection, ParticipantContext participantContext,
-                                                           Map<String, ContractDefinition> contractDefinitions) {
+                                                           Set<String> accessPolicyIds) {
         var tempTableName = queryManager.createTemporaryContractDefinitionTable(connection);
         queryManager.copyAuthorizedContractDefinitions(connection, participantContext.getParticipantContextId(),
-                tempTableName, List.copyOf(contractDefinitions.keySet()));
+                tempTableName, accessPolicyIds);
         queryManager.runAnalyze(connection, tempTableName);
         return tempTableName;
     }
@@ -190,8 +190,7 @@ public class ScalingDatasetResolver implements DatasetResolver {
                         .build());
     }
 
-    private Dataset toDataset(AuthorizedAsset authorizedAsset, Map<String, ContractDefinition> contractDefinitionsById,
-                              String protocol, Map<String, Policy> policies) {
+    private Dataset toDataset(AuthorizedAsset authorizedAsset, String protocol, Map<String, Policy> policies) {
         var asset = authorizedAsset.asset();
 
         var distributions = distributionResolver.getDistributions(protocol, asset);
@@ -200,17 +199,15 @@ public class ScalingDatasetResolver implements DatasetResolver {
                 .distributions(distributions)
                 .properties(asset.getProperties());
 
-        authorizedAsset.contractDefinitionIds().stream()
-                .map(contractDefinitionsById::get)
-                .filter(Objects::nonNull)
+        authorizedAsset.contractDefinitions()
                 .forEach(contractDefinition -> {
-                    var policy = policies.computeIfAbsent(contractDefinition.getContractPolicyId(),
+                    var policy = policies.computeIfAbsent(contractDefinition.contractPolicyId(),
                             policyId -> Optional.ofNullable(policyDefinitionStore.findById(policyId))
                                     .map(PolicyDefinition::getPolicy)
                                     .orElse(null));
 
                     if (policy != null) {
-                        var contractId = ContractOfferId.create(contractDefinition.getId(), asset.getId());
+                        var contractId = ContractOfferId.create(contractDefinition.id(), asset.getId());
                         var offerPolicy = policy.toBuilder().type(PolicyType.OFFER).build();
                         datasetBuilder.offer(contractId.toString(), offerPolicy);
                     }

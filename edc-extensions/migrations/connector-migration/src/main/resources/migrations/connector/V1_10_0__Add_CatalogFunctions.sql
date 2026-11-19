@@ -728,8 +728,10 @@ COMMENT ON FUNCTION edc_selector_matches(jsonb, json, jsonb) IS
 -- Bulk case, step 1: find IDs of matching assets
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Drives the join from the contract definitions table and probes the GIN index on edc_asset.effective_properties
--- for every definition. Returns only asset IDs and matching definition IDs, so the result materialized by PL/pgSQL
--- stays small. Dynamic SQL (and therefore PL/pgSQL) is required, as the definitions table is passed by name.
+-- for every definition. Returns only asset IDs and the IDs and contract policy IDs of the matching definitions, so the
+-- result materialized by PL/pgSQL stays small. Both arrays are ordered by definition ID, so matching_policy_ids[i] is
+-- the contract policy of matching_definition_ids[i]. Dynamic SQL (and therefore PL/pgSQL) is required, as the
+-- definitions table is passed by name.
 --
 -- The asset lookup is a LATERAL subquery with OFFSET 0, which forces one GIN index probe per definition. Without it,
 -- the planner flattens the lookup into a regular join on participant_context_id: as it can neither estimate the
@@ -742,13 +744,15 @@ COMMENT ON FUNCTION edc_selector_matches(jsonb, json, jsonb) IS
 CREATE OR REPLACE FUNCTION edc_find_matching_asset_ids(p_definitions_table text)
 RETURNS TABLE (
     asset_id                varchar,
-    matching_definition_ids varchar[]
+    matching_definition_ids varchar[],
+    matching_policy_ids     varchar[]
 )
 LANGUAGE plpgsql STABLE AS $$
 BEGIN
     RETURN QUERY EXECUTE format($q$
         SELECT a.asset_id,
-               array_agg(DISTINCT cd.contract_definition_id)::varchar[]
+               array_agg(cd.contract_definition_id ORDER BY cd.contract_definition_id)::varchar[],
+               array_agg(cd.contract_policy_id ORDER BY cd.contract_definition_id)::varchar[]
         FROM %s cd
         CROSS JOIN LATERAL (
             -- fast-path: probes the GIN index once per contract definition
@@ -773,7 +777,7 @@ $$;
 
 COMMENT ON FUNCTION edc_find_matching_asset_ids(text) IS
     'Returns the IDs of all assets selected by at least one contract definition of the specified '
-    'table, including the IDs of the matching definitions for each asset.';
+    'table, including the IDs and contract policy IDs of the matching definitions for each asset.';
 
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -806,7 +810,8 @@ RETURNS TABLE (
     data_address            json,
     participant_context_id  varchar,
     dataplane_metadata      json,
-    matching_definition_ids varchar[]
+    matching_definition_ids varchar[],
+    matching_policy_ids     varchar[]
 )
 LANGUAGE sql STABLE AS $$
     SELECT x.asset_id,
@@ -816,14 +821,15 @@ LANGUAGE sql STABLE AS $$
            x.data_address,
            x.participant_context_id,
            x.dataplane_metadata,
-           m.matching_definition_ids
+           m.matching_definition_ids,
+           m.matching_policy_ids
     FROM edc_find_matching_asset_ids(p_definitions_table) m
     JOIN edc_asset x ON x.asset_id = m.asset_id;
 $$;
 
 COMMENT ON FUNCTION edc_find_matching_assets_page(text) IS
     'Returns all assets selected by at least one contract definition of the specified table, '
-    'including the matching definition IDs. Inlinable SQL function: filters, ordering and paging '
+    'including the IDs and contract policy IDs of the matching definitions. Inlinable SQL function: filters, ordering and paging '
     'of the calling query are applied to the join directly.';
 
 
@@ -846,7 +852,8 @@ RETURNS TABLE (
     data_address            json,
     participant_context_id  varchar,
     dataplane_metadata      json,
-    matching_definition_ids varchar[]
+    matching_definition_ids varchar[],
+    matching_policy_ids     varchar[]
 )
 LANGUAGE plpgsql STABLE AS $$
 BEGIN
@@ -860,6 +867,7 @@ BEGIN
         cd AS NOT MATERIALIZED (
             -- reads the split selectors stored on the contract definitions (see edc_contract_definitions_split_selector)
             SELECT t.contract_definition_id,
+                   t.contract_policy_id,
                    t.participant_context_id,
                    t.selector_eq_filter        AS eq_filter,
                    t.selector_ambiguous_filter AS ambiguous_filter,
@@ -868,7 +876,8 @@ BEGIN
             FROM %s t
         ),
         matched AS (
-            SELECT array_agg(DISTINCT cd.contract_definition_id)::varchar[] AS matching_definition_ids
+            SELECT array_agg(cd.contract_definition_id ORDER BY cd.contract_definition_id)::varchar[] AS matching_definition_ids,
+                   array_agg(cd.contract_policy_id ORDER BY cd.contract_definition_id)::varchar[]     AS matching_policy_ids
             FROM a
             JOIN cd
               ON cd.participant_context_id = a.participant_context_id
@@ -885,7 +894,8 @@ BEGIN
                a.data_address,
                a.participant_context_id,
                a.dataplane_metadata,
-               m.matching_definition_ids
+               m.matching_definition_ids,
+               m.matching_policy_ids
         FROM a
         CROSS JOIN matched m
         WHERE m.matching_definition_ids IS NOT NULL
@@ -895,8 +905,8 @@ END;
 $$;
 
 COMMENT ON FUNCTION edc_find_authorized_asset(text, text) IS
-    'Returns the asset with the given ID including the IDs of all contract definitions of the '
-    'specified table that select it, or no row if the asset does not exist or is not selected.';
+    'Returns the asset with the given ID including the IDs and contract policy IDs of all contract '
+    'definitions of the specified table that select it, or no row if the asset does not exist or is not selected.';
 
 
 -- ---------------------------------------------------------------------------------------------------------------------

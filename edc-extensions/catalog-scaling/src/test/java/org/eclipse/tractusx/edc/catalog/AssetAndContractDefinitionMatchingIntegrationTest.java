@@ -32,6 +32,7 @@ import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.sql.QueryExecutor;
 import org.eclipse.edc.sql.testfixtures.PostgresqlStoreSetupExtension;
+import org.eclipse.tractusx.edc.catalog.AuthorizedAsset.MatchingContractDefinition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,7 +83,8 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
                 mapper, queryExecutor);
 
         queryManager = new CatalogRequestQueryManager(EXTENSION.getDataSourceRegistry(), EXTENSION.getDatasourceName(), EXTENSION.getTransactionContext(),
-                mapper, queryExecutor, new WrappedAssetStatements(), 2);
+                mapper, queryExecutor, new WrappedAssetStatements(),
+                new org.eclipse.edc.connector.controlplane.store.sql.policydefinition.store.schema.postgres.PostgresDialectStatements(), 2);
 
         EXTENSION.runQuery(getResourceFileContentAsString("asset-index-schema.sql"));
         EXTENSION.runQuery(getResourceFileContentAsString("contract-definition-schema.sql"));
@@ -148,7 +150,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
             } else {
                 assertThat(result).as("bulk query").singleElement().satisfies(authorizedAsset -> {
                     assertThat(authorizedAsset.asset().getId()).isEqualTo(assetId);
-                    assertThat(authorizedAsset.contractDefinitionIds()).containsExactlyInAnyOrderElementsOf(expectedDefinitionIds);
+                    assertThat(authorizedAsset.contractDefinitions()).containsExactlyInAnyOrderElementsOf(matchingDefinitions(expectedDefinitionIds));
                 });
             }
         }
@@ -167,7 +169,7 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
             } else {
                 assertThat(result).as("single asset query").hasValueSatisfying(authorizedAsset -> {
                     assertThat(authorizedAsset.asset().getId()).isEqualTo(assetId);
-                    assertThat(authorizedAsset.contractDefinitionIds()).containsExactlyInAnyOrderElementsOf(expectedDefinitionIds);
+                    assertThat(authorizedAsset.contractDefinitions()).containsExactlyInAnyOrderElementsOf(matchingDefinitions(expectedDefinitionIds));
                 });
             }
         }
@@ -236,12 +238,27 @@ class AssetAndContractDefinitionMatchingIntegrationTest {
                 .build();
     }
 
+    private static String contractPolicyId(String definitionId) {
+        return "contract-policy-" + definitionId;
+    }
+
+    private static List<MatchingContractDefinition> matchingDefinitions(List<String> definitionIds) {
+        return definitionIds.stream()
+                .map(id -> new MatchingContractDefinition(id, contractPolicyId(id)))
+                .toList();
+    }
+
     private ContractDefinition createContractDefinition(String id, String participantContextId, List<Criterion> assetsSelector) {
+        return createContractDefinition(id, participantContextId, "accessPolicyId", assetsSelector);
+    }
+
+    private ContractDefinition createContractDefinition(String id, String participantContextId, String accessPolicyId,
+                                                        List<Criterion> assetsSelector) {
         return ContractDefinition.Builder.newInstance()
                 .id(id)
                 .participantContextId(participantContextId)
-                .accessPolicyId("accessPolicyId")
-                .contractPolicyId("contractPolicyId")
+                .accessPolicyId(accessPolicyId)
+                .contractPolicyId(contractPolicyId(id))
                 .assetsSelector(assetsSelector)
                 .build();
     }

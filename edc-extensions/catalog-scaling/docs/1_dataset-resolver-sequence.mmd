@@ -25,8 +25,8 @@
 
 sequenceDiagram
     participant E as Extension
-    participant D as DatasetResolverImpl
-    participant C as ContractDefinitionResolverImpl
+    participant D as ScalingDatasetResolver
+    participant C as ScalingContractDefinitionResolver
     participant DB as Database
 
     Note over E,DB: Start-up
@@ -38,37 +38,31 @@ sequenceDiagram
     Note over D: Entry: query(...)
     D->>C: resolveFor(participantContext, agent)
     activate C
-    C->>C: Build participant-scoped contract-definition query and policy cache
-    C->>DB: findAll(query) [ContractDefinitionStore]
-    DB-->>C: Contract definitions
+    C->>DB: Load policies referenced as access policy by the participant's contract definitions
+    DB-->>C: Policy definitions
 
-    loop For each contract definition
-        opt Access policy not already cached
-            C->>DB: findById(contextId, accessPolicyId) [PolicyDefinitionStore]
-            DB-->>C: Policy definition or null
-            C->>C: Cache policy if found
-        end
+    loop For each referenced policy
         C->>C: Evaluate access policy for agent
-        C->>C: Keep definition only if access evaluation succeeds
+        C->>C: Keep policy ID only if access evaluation succeeds
     end
 
-    C-->>D: Resolved contract definitions
+    C-->>D: Authorized access policy IDs
     deactivate C
 
-    alt No contract definitions
+    alt No authorized access policies
         D->>D: Return empty stream
-    else Contract definitions found
+    else Authorized access policies found
         D->>DB: open connection
         D->>DB: Create temp table for authorized contract definitions
-        D->>DB: Copy authorized contract definitions (incl. stored split selectors) to temp table
+        D->>DB: Copy definitions by context and authorized policy IDs to temp table
+        D->>DB: ANALYZE temp table
         D->>D: Build asset query (filters, limit & offset from original query, ordered by asset ID)
         D->>DB: query assets matching query & with at least 1 match in temp table (function edc_find_matching_assets_page)
-        DB-->>D: Matching assets incl. IDs of all matching, authorized contract definitions
+        DB-->>D: Matching assets incl. IDs and contract policy IDs of all matching, authorized contract definitions
 
         loop For each asset
             D->>D: Resolve distributions for protocol
-            loop For each matching contract definition ID
-                D->>D: Get contract definition from cache returned by ContractDefinitionResolverImpl
+            loop For each matching contract definition (ID, contract policy ID)
                 opt Contract policy not already cached
                     D->>DB: findById(contextId, contractPolicyId) [PolicyDefinitionStore]
                     DB-->>D: Policy definition or null
@@ -78,5 +72,5 @@ sequenceDiagram
             end
         end
 
-        D->>DB: Close connection => drop temp table
+        D->>DB: Commit or rollback transaction => drop temp table
     end

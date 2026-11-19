@@ -23,27 +23,28 @@ import org.eclipse.edc.connector.controlplane.asset.spi.domain.Asset;
 import org.eclipse.edc.connector.controlplane.catalog.spi.Dataset;
 import org.eclipse.edc.connector.controlplane.catalog.spi.DistributionResolver;
 import org.eclipse.edc.connector.controlplane.contract.spi.ContractOfferId;
-import org.eclipse.edc.connector.controlplane.contract.spi.types.offer.ContractDefinition;
 import org.eclipse.edc.connector.controlplane.policy.spi.PolicyDefinition;
 import org.eclipse.edc.connector.controlplane.policy.spi.store.PolicyDefinitionStore;
 import org.eclipse.edc.participant.spi.ParticipantAgent;
 import org.eclipse.edc.participantcontext.spi.types.ParticipantContext;
 import org.eclipse.edc.policy.model.Policy;
+import org.eclipse.edc.policy.model.PolicyType;
 import org.eclipse.edc.spi.query.Criterion;
 import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.spi.query.SortOrder;
 import org.eclipse.edc.transaction.spi.TransactionContext;
 import org.eclipse.edc.transaction.spi.TransactionContext.ResultTransactionBlock;
+import org.eclipse.tractusx.edc.catalog.AuthorizedAsset.MatchingContractDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
 
@@ -54,6 +55,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -67,8 +71,10 @@ class ScalingDatasetResolverTest {
     private static final String DEFINITION_ID_1 = "definition";
     private static final String DEFINITION_ID_2 = "other-definition";
     private static final String CONTRACT_POLICY_ID = "contract-policy";
+    private static final String MISSING_CONTRACT_POLICY_ID = "missing-contract-policy";
+    private static final String ACCESS_POLICY_ID = "access-policy";
 
-    private final ScalingContractDefinitionResolver contractDefinitionResolver = mock();
+    private final AuthorizedAccessPolicyResolver contractDefinitionResolver = mock();
     private final CatalogRequestQueryManager queryManager = mock();
     private final PolicyDefinitionStore policyDefinitionStore = mock();
     private final DistributionResolver distributionResolver = mock();
@@ -100,9 +106,9 @@ class ScalingDatasetResolverTest {
 
     @Test
     void query_shouldReuseConnectionAndTempTableForAllSteps() throws SQLException {
-        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedDefinitions());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
         when(queryManager.queryAssetsWithMatchingContractDefinitions(any(), anyString(), any()))
-                .thenReturn(Stream.of(new AuthorizedAsset(asset(), List.of(DEFINITION_ID_1))));
+                .thenReturn(Stream.of(new AuthorizedAsset(asset(), List.of(definition(DEFINITION_ID_1)))));
         var querySpec = QuerySpec.Builder.newInstance()
                 .offset(5)
                 .limit(10)
@@ -121,7 +127,7 @@ class ScalingDatasetResolverTest {
         inOrder.verify(dataSource).getConnection();
         inOrder.verify(queryManager).createTemporaryContractDefinitionTable(connection);
         inOrder.verify(queryManager).copyAuthorizedContractDefinitions(connection, PARTICIPANT_CONTEXT_ID, TEMP_TABLE,
-                List.of(DEFINITION_ID_1, DEFINITION_ID_2));
+                authorizedPolicies());
         inOrder.verify(queryManager).runAnalyze(connection, TEMP_TABLE);
         inOrder.verify(queryManager).queryAssetsWithMatchingContractDefinitions(eq(connection), eq(TEMP_TABLE), assetsQuery.capture());
         verifyNoMoreInteractions(dataSource, queryManager);
@@ -138,7 +144,7 @@ class ScalingDatasetResolverTest {
 
     @Test
     void query_shouldReturnEmptyStream_whenNoAssetIsFound() throws SQLException {
-        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedDefinitions());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
         when(queryManager.queryAssetsWithMatchingContractDefinitions(any(), anyString(), any()))
                 .thenReturn(Stream.empty());
 
@@ -150,7 +156,7 @@ class ScalingDatasetResolverTest {
         inOrder.verify(dataSource).getConnection();
         inOrder.verify(queryManager).createTemporaryContractDefinitionTable(connection);
         inOrder.verify(queryManager).copyAuthorizedContractDefinitions(connection, PARTICIPANT_CONTEXT_ID, TEMP_TABLE,
-                List.of(DEFINITION_ID_1, DEFINITION_ID_2));
+                authorizedPolicies());
         inOrder.verify(queryManager).runAnalyze(connection, TEMP_TABLE);
         inOrder.verify(queryManager).queryAssetsWithMatchingContractDefinitions(eq(connection), eq(TEMP_TABLE), any());
         verifyNoMoreInteractions(dataSource, queryManager);
@@ -158,7 +164,7 @@ class ScalingDatasetResolverTest {
 
     @Test
     void query_shouldNotQueryDatabase_whenNoContractDefinitionIsAuthorized() {
-        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(Map.of());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(Set.of());
 
         var datasets = resolver.query(participantContext, agent, QuerySpec.max(), PROTOCOL);
 
@@ -168,9 +174,9 @@ class ScalingDatasetResolverTest {
 
     @Test
     void getById_shouldReuseConnectionAndTempTableForAllSteps() throws SQLException {
-        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedDefinitions());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
         when(queryManager.findAssetWithMatchingContractDefinitions(any(), anyString(), anyString()))
-                .thenReturn(Optional.of(new AuthorizedAsset(asset(), List.of(DEFINITION_ID_1, DEFINITION_ID_2))));
+                .thenReturn(Optional.of(new AuthorizedAsset(asset(), List.of(definition(DEFINITION_ID_1), definition(DEFINITION_ID_2)))));
 
         var dataset = resolver.getById(participantContext, agent, ASSET_ID, PROTOCOL);
 
@@ -182,15 +188,17 @@ class ScalingDatasetResolverTest {
         inOrder.verify(dataSource).getConnection();
         inOrder.verify(queryManager).createTemporaryContractDefinitionTable(connection);
         inOrder.verify(queryManager).copyAuthorizedContractDefinitions(connection, PARTICIPANT_CONTEXT_ID, TEMP_TABLE,
-                List.of(DEFINITION_ID_1, DEFINITION_ID_2));
+                authorizedPolicies());
         inOrder.verify(queryManager).runAnalyze(connection, TEMP_TABLE);
         inOrder.verify(queryManager).findAssetWithMatchingContractDefinitions(connection, TEMP_TABLE, ASSET_ID);
         verifyNoMoreInteractions(dataSource, queryManager);
+        // both definitions share the contract policy, which is therefore loaded once
+        verify(policyDefinitionStore, times(1)).findById(CONTRACT_POLICY_ID);
     }
 
     @Test
     void getById_shouldReturnNull_whenAssetIsNotFound() throws SQLException {
-        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedDefinitions());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
         when(queryManager.findAssetWithMatchingContractDefinitions(any(), anyString(), anyString())).thenReturn(Optional.empty());
 
         var dataset = resolver.getById(participantContext, agent, ASSET_ID, PROTOCOL);
@@ -201,7 +209,7 @@ class ScalingDatasetResolverTest {
         inOrder.verify(dataSource).getConnection();
         inOrder.verify(queryManager).createTemporaryContractDefinitionTable(connection);
         inOrder.verify(queryManager).copyAuthorizedContractDefinitions(connection, PARTICIPANT_CONTEXT_ID, TEMP_TABLE,
-                List.of(DEFINITION_ID_1, DEFINITION_ID_2));
+                authorizedPolicies());
         inOrder.verify(queryManager).runAnalyze(connection, TEMP_TABLE);
         inOrder.verify(queryManager).findAssetWithMatchingContractDefinitions(connection, TEMP_TABLE, ASSET_ID);
         verifyNoMoreInteractions(dataSource, queryManager);
@@ -209,7 +217,7 @@ class ScalingDatasetResolverTest {
 
     @Test
     void getById_shouldNotQueryDatabase_whenNoContractDefinitionIsAuthorized() {
-        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(Map.of());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(Set.of());
 
         var dataset = resolver.getById(participantContext, agent, ASSET_ID, PROTOCOL);
 
@@ -217,20 +225,57 @@ class ScalingDatasetResolverTest {
         verifyNoInteractions(dataSource, queryManager);
     }
 
-    private Map<String, ContractDefinition> authorizedDefinitions() {
-        var definitions = new LinkedHashMap<String, ContractDefinition>();
-        definitions.put(DEFINITION_ID_1, definition(DEFINITION_ID_1));
-        definitions.put(DEFINITION_ID_2, definition(DEFINITION_ID_2));
-        return definitions;
+    @Test
+    void getById_shouldOfferContractPolicyReturnedByQuery() {
+        var contractPolicy = Policy.Builder.newInstance().target("contract-policy-target").build();
+        when(policyDefinitionStore.findById(CONTRACT_POLICY_ID))
+                .thenReturn(PolicyDefinition.Builder.newInstance().id(CONTRACT_POLICY_ID).policy(contractPolicy).build());
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
+        when(queryManager.findAssetWithMatchingContractDefinitions(any(), anyString(), anyString()))
+                .thenReturn(Optional.of(new AuthorizedAsset(asset(), List.of(definition(DEFINITION_ID_1)))));
+
+        var dataset = resolver.getById(participantContext, agent, ASSET_ID, PROTOCOL);
+
+        assertThat(dataset).isNotNull();
+        assertThat(dataset.getOffers().entrySet()).singleElement().satisfies(offer -> {
+            assertThat(ContractOfferId.parseId(offer.getKey()).getContent().definitionPart()).isEqualTo(DEFINITION_ID_1);
+            assertThat(offer.getValue().getTarget()).isEqualTo("contract-policy-target");
+            assertThat(offer.getValue().getType()).isEqualTo(PolicyType.OFFER);
+        });
     }
 
-    private ContractDefinition definition(String id) {
-        return ContractDefinition.Builder.newInstance()
-                .id(id)
-                .participantContextId(PARTICIPANT_CONTEXT_ID)
-                .accessPolicyId("access-policy")
-                .contractPolicyId(CONTRACT_POLICY_ID)
-                .build();
+    @Test
+    void getById_shouldSkipDefinition_whenContractPolicyDoesNotExist() {
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
+        when(queryManager.findAssetWithMatchingContractDefinitions(any(), anyString(), anyString()))
+                .thenReturn(Optional.of(new AuthorizedAsset(asset(), List.of(
+                        definition(DEFINITION_ID_1),
+                        new MatchingContractDefinition(DEFINITION_ID_2, MISSING_CONTRACT_POLICY_ID)))));
+
+        var dataset = resolver.getById(participantContext, agent, ASSET_ID, PROTOCOL);
+
+        assertThat(dataset).isNotNull();
+        assertThat(offeredDefinitionIds(dataset)).containsExactly(DEFINITION_ID_1);
+        verify(policyDefinitionStore).findById(MISSING_CONTRACT_POLICY_ID);
+    }
+
+    @Test
+    void getById_shouldReturnNull_whenNoContractPolicyExists() {
+        when(contractDefinitionResolver.resolveFor(participantContext, agent)).thenReturn(authorizedPolicies());
+        when(queryManager.findAssetWithMatchingContractDefinitions(any(), anyString(), anyString()))
+                .thenReturn(Optional.of(new AuthorizedAsset(asset(), List.of(
+                        new MatchingContractDefinition(DEFINITION_ID_1, MISSING_CONTRACT_POLICY_ID)))));
+
+        assertThat(resolver.getById(participantContext, agent, ASSET_ID, PROTOCOL)).isNull();
+        verify(policyDefinitionStore, never()).findById(CONTRACT_POLICY_ID);
+    }
+
+    private Set<String> authorizedPolicies() {
+        return Set.of(ACCESS_POLICY_ID);
+    }
+
+    private MatchingContractDefinition definition(String id) {
+        return new MatchingContractDefinition(id, CONTRACT_POLICY_ID);
     }
 
     private Asset asset() {

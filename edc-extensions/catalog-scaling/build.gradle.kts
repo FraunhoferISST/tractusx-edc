@@ -28,9 +28,11 @@ dependencies {
     implementation(libs.edc.lib.sql)
 
     compileOnly(libs.edc.sql.assetindex)
+    compileOnly(libs.edc.sql.policy.definition)
 
     testImplementation(libs.edc.sql.assetindex)
     testImplementation(libs.edc.sql.contract.definition)
+    testImplementation(libs.edc.sql.policy.definition)
     testImplementation(libs.edc.core.controlplane)
     testImplementation(libs.edc.lib.query)
     testImplementation(testFixtures(libs.edc.sql.test.fixtures))

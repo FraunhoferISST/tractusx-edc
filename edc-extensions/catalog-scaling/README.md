@@ -18,6 +18,9 @@ As the `DatasetResolver` implementation provided by this extension moves the mat
 to the database and relies heavily on Postgres features for doing so, it can only be used by a control plane
 runtime using Postgres as its database.
 
+Assets, contract definitions and policy definitions must be stored in the same datasource, as the extension queries
+across these tables. If they are not, the extension logs a warning and the upstream `DatasetResolver` is used.
+
 > As the extension uses a `TRIGGER`, the Postgres version needs to be >= 14.
 
 ## How It Works
@@ -37,13 +40,14 @@ for matching contract definitions to assets faster.
 
 With the functions and additional columns, the process of generating datasets for a catalog request is as follows:
 
-1. Resolve authorized contract definitions (same as upstream implementation)
+1. Load all policies referenced as access policy by a contract definition of the participant context in a single query,
+   and evaluate each policy once for the requesting participant
 2. Create a temporary table in Postgres with the same schema and defaults as the contract definition table
-3. Copy authorized contract definitions to the temporary table
+3. Copy contract definitions with authorized access policy IDs and the same participant context to the temporary table
 4. Run `ANALYZE` on the temporary table to update Postgres statistics for efficient query planning
 5. Build the assets query as defined by the supplied QuerySpec incl. offset & limit, and using the `id` as a sort field to ensure stable ordering of results
-6. Query for assets using the function `edc_find_matching_assets_page`, which returns matching assets incl. IDs of all matching contract definitions per asset
-7. For each returned asset, build a dataset
+6. Query for assets using the function `edc_find_matching_assets_page`, which returns matching assets incl. the IDs and contract policy IDs of all matching contract definitions per asset
+7. For each returned asset, build a dataset with one offer per matching contract definition, loading each contract policy once per request
 
 A sequence diagram of this process is available in the [docs directory](docs/1_dataset-resolver-sequence.mmd).
 
@@ -74,11 +78,13 @@ itself.
 
 ## Configuration
 
-This extension relies on the existing properties `edc.sql.store.asset.datasource` and
-`edc.sql.store.contractdefinition.datasource` to identify the datasource to use, and takes one additional configuration
+This extension relies on the existing properties `edc.sql.store.asset.datasource`,
+`edc.sql.store.contractdefinition.datasource` and `edc.sql.store.policy.datasource` to identify the datasource to use, and takes one additional configuration
 property:
 
-`edc.sql.store.contractdefinition.copy.batch.size`: number of contract definition to copy to the temporary table in one batch. Default: `5000`
+`edc.sql.store.contractdefinition.copy.batch.size`: number of authorized access policy IDs per batch when copying
+contract definitions to the temporary table. A batch can copy more definitions than this number when policies are
+shared. Default: `5000`
 
 ## Additional Notes
 
